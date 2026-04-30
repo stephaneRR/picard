@@ -29,11 +29,29 @@ from PyQt6.QtNetwork import QNetworkRequest
 from picard import log
 from picard.config import get_config
 from picard.const.defaults import DEFAULT_PLUGIN_REGISTRY_URLS
-from picard.git.utils import normalize_git_url
 from picard.i18n import sort_key
 from picard.plugin3.installable import InstallablePlugin
 from picard.plugin3.plugin import hash_string
 from picard.util import atomic_write
+
+
+def normalize_url(url):
+    """Normalize URL for comparison (expand local paths to absolute).
+
+    Args:
+        url: URL or local path
+
+    Returns:
+        str: Normalized URL
+    """
+    if not url:
+        return url
+    if '://' not in url or url.startswith('file://'):
+        if url.startswith('file://'):
+            url = url[7:]
+        expanded = os.path.expanduser(url)
+        return os.path.abspath(expanded)
+    return url
 
 
 try:
@@ -334,7 +352,7 @@ class PluginRegistry:
             return False, None
 
         # Normalize URL for comparison
-        normalized_url = normalize_git_url(url) if url else None
+        normalized_url = normalize_url(url) if url else None
 
         blacklist = self._registry_data.get('blacklist', [])
 
@@ -342,7 +360,7 @@ class PluginRegistry:
             # Check UUID + URL combination (most specific - blocks specific fork)
             if 'uuid' in entry and 'url' in entry:
                 if plugin_uuid and plugin_uuid == entry['uuid']:
-                    blacklist_url = normalize_git_url(entry['url'])
+                    blacklist_url = normalize_url(entry['url'])
                     if normalized_url == blacklist_url:
                         reason = entry.get('reason', 'Plugin is blacklisted')
                         return True, reason
@@ -356,7 +374,7 @@ class PluginRegistry:
             # Check exact URL match
             elif 'url' in entry:
                 if normalized_url:
-                    blacklist_url = normalize_git_url(entry['url'])
+                    blacklist_url = normalize_url(entry['url'])
                     if normalized_url == blacklist_url:
                         reason = entry.get('reason', 'Plugin is blacklisted')
                         return True, reason
@@ -427,10 +445,10 @@ class PluginRegistry:
             return 'unregistered'
 
         # Normalize URL for comparison
-        normalized_url = normalize_git_url(url)
+        normalized_url = normalize_url(url)
 
         for plugin in self._plugins:
-            plugin_url = normalize_git_url(plugin.git_url or '')
+            plugin_url = normalize_url(plugin.git_url or '')
             if plugin_url == normalized_url:
                 return plugin.trust_level
 
@@ -452,7 +470,7 @@ class PluginRegistry:
             return None
 
         # Normalize URL for comparison if provided
-        normalized_url = normalize_git_url(url) if url else None
+        normalized_url = normalize_url(url) if url else None
 
         # First pass: search by current values (fast path)
         for plugin in self._plugins:
@@ -461,7 +479,7 @@ class PluginRegistry:
             if uuid and plugin.uuid == uuid:
                 return plugin
             if normalized_url:
-                plugin_url = normalize_git_url(plugin.git_url or '')
+                plugin_url = normalize_url(plugin.git_url or '')
                 if plugin_url == normalized_url:
                     return plugin
 
@@ -471,7 +489,7 @@ class PluginRegistry:
                 # Check URL redirects
                 if normalized_url and plugin.redirect_from:
                     for old_url in plugin.redirect_from:
-                        old_url_normalized = normalize_git_url(old_url)
+                        old_url_normalized = normalize_url(old_url)
                         if old_url_normalized == normalized_url:
                             log.info('Found plugin via URL redirect: %s -> %s', url, plugin.git_url)
                             return plugin
@@ -497,8 +515,8 @@ class PluginRegistry:
         plugin = self.find_plugin(uuid=uuid) or self.find_plugin(url=url)
         if not plugin:
             return None
-        normalized_url = normalize_git_url(url) if url else None
-        normalized_plugin_url = normalize_git_url(plugin.git_url) if plugin.git_url else None
+        normalized_url = normalize_url(url) if url else None
+        normalized_plugin_url = normalize_url(plugin.git_url) if plugin.git_url else None
         url_changed = normalized_plugin_url and normalized_plugin_url != normalized_url
         uuid_changed = uuid and plugin.uuid and plugin.uuid != uuid
         if url_changed or uuid_changed:

@@ -99,7 +99,6 @@ from picard.options import (
     Option,
     get_option_title,
 )
-from picard.plugin3.manager.update_checker import PluginUpdateChecker
 from picard.script import get_file_naming_script_presets
 from picard.session.constants import SessionConstants
 from picard.session.session_manager import (
@@ -1955,11 +1954,8 @@ class MainWindow(QtWidgets.QMainWindow, PreserveGeometry):
         )
 
     def _check_for_plugin_updates(self):
-        config = get_config()
-        if self.plugin_manager and config.setting['check_for_plugin_updates']:
-            PluginUpdateChecker(self.plugin_manager).check_for_updates()
-        else:
-            log.info("Skipping plugin update checks based on user settings")
+        # Plugin update checks are no longer supported (git backend removed)
+        log.info("Plugin update checks not available (git backend removed)")
 
     def _check_and_repair_naming_scripts(self):
         """Check the 'file_renaming_scripts' config setting to ensure that the list of scripts

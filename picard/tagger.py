@@ -140,21 +140,10 @@ from picard.i18n import (
 from picard.options import init_options
 
 
-try:
-    from picard.git.factory import has_git_backend
+from picard.plugin3.pluginmanager import PluginManager
 
-    if has_git_backend():
-        from picard.plugin3.manager import PluginManager
-
-        HAS_PLUGIN3 = True
-    else:
-        HAS_PLUGIN3 = False
-        PluginCLI = None
-        PluginManager = None
-except ImportError:
-    HAS_PLUGIN3 = False
-    PluginCLI = None
-    PluginManager = None
+# Plugin3 system is always available (git backend no longer required)
+HAS_PLUGIN3 = True
 
 from picard.releasegroup import ReleaseGroup
 from picard.remotecommands import RemoteCommands
@@ -412,7 +401,7 @@ class Tagger(QtWidgets.QApplication):
             self._pluginmanager3.add_directory(plugin_folder(), primary=True)
         else:
             self._pluginmanager3 = None
-            log.warning('Plugin3 system not available (git backend not available)')
+            log.warning('Plugin3 system not available')
 
     def get_plugin_manager(self):
         """Get the plugin manager instance.
@@ -430,7 +419,7 @@ class Tagger(QtWidgets.QApplication):
         plugin system is unavailable.
         """
         if not HAS_PLUGIN3:
-            return False, _('Git backend not available')
+            return False, _('Plugin system not available')
         elif self._no_plugins:
             return False, _('Disabled by command line parameter')
         return True, ""

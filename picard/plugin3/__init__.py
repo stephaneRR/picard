@@ -18,17 +18,21 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from picard.git.backend import (
-    GitBackendError,
-    GitCommitError,
-    GitReferenceError,
-    GitRepositoryError,
+from picard.plugin3.errors import (
+    PluginError,
+    PluginManifestError,
+    PluginManifestInvalidError,
+    PluginManifestNotFoundError,
+    PluginManifestReadError,
+    PluginNoUUIDError,
 )
 
 
 __all__ = [
-    'GitBackendError',
-    'GitRepositoryError',
-    'GitReferenceError',
-    'GitCommitError',
+    'PluginError',
+    'PluginManifestError',
+    'PluginManifestInvalidError',
+    'PluginManifestNotFoundError',
+    'PluginManifestReadError',
+    'PluginNoUUIDError',
 ]

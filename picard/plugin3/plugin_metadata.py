@@ -28,12 +28,6 @@ from typing import TYPE_CHECKING
 
 from picard import log
 from picard.config import get_config
-from picard.git.backend import (
-    GitRef,
-    GitRefType,
-)
-from picard.git.factory import git_backend
-from picard.git.utils import normalize_git_url
 
 
 if TYPE_CHECKING:
@@ -52,74 +46,18 @@ class PluginMetadata:
     original_url: str | None = None
     original_uuid: str | None = None
     ref_type: str | None = None  # 'tag' or 'branch' to indicate installation method
-    git_ref: GitRef | None = None  # New GitRef object (preferred over ref/ref_type)
 
     def to_dict(self):
         """Convert to dict for config storage, excluding None values."""
         data = {k: v for k, v in asdict(self).items() if v is not None}
-        # Serialize git_ref to tuple for storage
-        if self.git_ref:
-            data['git_ref_tuple'] = self.git_ref.to_tuple()
-        data.pop('git_ref', None)  # Remove non-serializable GitRef object
         return data
 
     @classmethod
     def from_dict(cls, data: dict):
-        """Create PluginMetadata from dict, reconstructing GitRef from tuple."""
-        # Reconstruct GitRef from tuple if present
-        git_ref = None
-        if 'git_ref_tuple' in data:
-            git_ref = GitRef.from_tuple(data.pop('git_ref_tuple'))
-
+        """Create PluginMetadata from dict."""
         # Filter unknown fields and create instance
         filtered_data = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
-        instance = cls(**filtered_data)
-        instance.git_ref = git_ref
-        return instance
-
-    def get_git_ref(self):
-        """Get GitRef object, preferring stored GitRef over reconstructed from ref/ref_type."""
-        if self.git_ref:
-            return self.git_ref
-
-        # Reconstruct GitRef from legacy ref/ref_type data
-        if self.ref or self.commit:
-            # Ensure we always store full canonical ref names in GitRef
-            if self.ref:
-                if self.ref.startswith('refs/'):
-                    # Already a full name, use as-is
-                    full_name = self.ref
-                else:
-                    # Short name, construct full name based on ref_type
-                    if self.ref_type == 'tag':
-                        full_name = f"refs/tags/{self.ref}"
-                    elif self.ref_type == 'branch':
-                        full_name = f"refs/heads/{self.ref}"
-                    else:
-                        # Unknown type, assume it's a short name and guess
-                        if self.ref.startswith('v') or '.' in self.ref:
-                            full_name = f"refs/tags/{self.ref}"
-                        else:
-                            full_name = f"refs/heads/{self.ref}"
-            else:
-                # Only commit, no ref name
-                full_name = self.commit
-
-            # Determine ref_type from full name if not already set
-            if self.ref_type == 'tag':
-                ref_type = GitRefType.TAG
-            elif self.ref_type == 'branch':
-                ref_type = GitRefType.BRANCH
-            elif full_name.startswith('refs/tags/'):
-                ref_type = GitRefType.TAG
-            elif full_name.startswith('refs/heads/'):
-                ref_type = GitRefType.BRANCH
-            else:
-                ref_type = None
-
-            return GitRef(name=full_name, target=self.commit, ref_type=ref_type)
-
-        return GitRef(name='', target='')
+        return cls(**filtered_data)
 
 
 class PluginMetadataManager:
@@ -158,17 +96,16 @@ class PluginMetadataManager:
         """Find plugin metadata by URL.
 
         Args:
-            url: Git repository URL
+            url: Plugin source URL
 
         Returns:
             PluginMetadata: Plugin metadata or None if not found
         """
         metadata = get_config().setting['plugins3_metadata']
-        normalized_url = normalize_git_url(url) if url else None
-        if not normalized_url:
+        if not url:
             return None
         for item in metadata.values():
-            if normalize_git_url(item.get('url', '')) == normalized_url:
+            if item.get('url', '') == url:
                 return PluginMetadata.from_dict(item)
         return None
 
@@ -194,7 +131,7 @@ class PluginMetadataManager:
         """Get original metadata before redirect.
 
         Preserves the earliest original values across chained redirects
-        (A→B→C keeps A as the original).
+        (A->B->C keeps A as the original).
 
         Args:
             redirected: Whether plugin was redirected
@@ -238,136 +175,3 @@ class PluginMetadataManager:
             return registry_plugin.get('id')
 
         return None
-
-    def get_plugin_refs_info(self, identifier, plugins):
-        """Get plugin refs information from identifier (smart detection).
-
-        Args:
-            identifier: Plugin name, registry ID, UUID, or git URL
-            plugins: List of installed plugins
-
-        Returns:
-            dict with keys:
-                - url: Git URL
-                - current_ref: Current ref (if installed)
-                - current_commit: Current commit (if installed)
-                - registry_id: Registry ID (if in registry)
-                - plugin: Plugin object (if installed)
-                - registry_plugin: Registry plugin data (if in registry)
-            or None if not found
-        """
-        # Initialize variables
-        metadata = None
-        current_ref = None
-        current_commit = None
-        current_ref_type = None
-
-        # Try to find installed plugin first
-        plugin = None
-        for p in plugins:
-            registry_id = self.get_plugin_registry_id(p)
-            if (
-                p.plugin_id == identifier
-                or (p.manifest and p.manifest.name() == identifier)
-                or (p.uuid and str(p.uuid) == identifier)
-                or registry_id == identifier
-            ):
-                plugin = p
-                break
-
-        if plugin:
-            # Plugin is installed
-            if not plugin.manifest:
-                return None
-
-            metadata = self.get_plugin_metadata(plugin.uuid)
-            url = metadata.url if metadata else None
-
-            # If no URL in metadata, try to get from registry
-            if not url:
-                registry_plugin = self._registry.find_plugin(uuid=str(plugin.uuid))
-                if not registry_plugin:
-                    return None
-                url = registry_plugin.git_url
-
-            registry_id = self.get_plugin_registry_id(plugin)
-
-            # Get current ref info from local repo
-            current_ref, current_commit = self._get_current_ref_info(plugin)
-            if not current_ref:
-                if metadata:
-                    git_ref = metadata.get_git_ref()
-                    current_ref = git_ref.shortname if git_ref.shortname else None
-                    current_commit = metadata.commit
-            else:
-                # Prefer metadata ref over detected ref for consistency
-                if metadata and metadata.ref:
-                    git_ref = metadata.get_git_ref()
-                    current_ref = git_ref.shortname if git_ref.shortname else metadata.ref
-
-            # Set ref type from metadata
-            current_ref_type = metadata.ref_type if metadata else None
-
-        else:
-            # Not installed - try registry ID, UUID, or URL
-            if '://' in identifier or '/' in identifier:
-                # Looks like a URL
-                url = identifier
-                registry_id = self._registry.get_registry_id(url=url)
-            else:
-                # Try as registry ID or UUID
-                registry_plugin = self._registry.find_plugin(plugin_id=identifier)
-                if not registry_plugin:
-                    # Try as UUID
-                    registry_plugin = self._registry.find_plugin(uuid=identifier)
-
-                if not registry_plugin:
-                    return None
-
-                url = registry_plugin.git_url
-                registry_id = registry_plugin.id or identifier
-
-        # Get registry data if available
-        registry_plugin = self._registry.find_plugin(plugin_id=registry_id) if registry_id else None
-
-        return {
-            'url': url,
-            'current_ref': current_ref,
-            'current_commit': current_commit,
-            'current_ref_type': current_ref_type,
-            'registry_id': registry_id,
-            'plugin': plugin,
-            'registry_plugin': registry_plugin,
-        }
-
-    def _get_current_ref_info(self, plugin: 'Plugin | None'):
-        """Get current ref name and commit for installed plugin.
-
-        Returns:
-            tuple: (ref_name, commit_id) or (None, None) if not available
-        """
-        if not plugin or not plugin.local_path:
-            return None, None
-
-        try:
-            backend = git_backend()
-            with backend.create_repository(plugin.local_path) as repo:
-                current_commit = repo.get_head_target()
-
-                # Check if current commit matches a tag (prefer tag over branch)
-                for git_ref in repo.list_references():
-                    if git_ref.ref_type == GitRefType.TAG:
-                        target = repo.revparse_to_commit(git_ref.name)
-                        if target.id == current_commit:
-                            return git_ref.shortname, current_commit
-
-                # No tag match, check if on a branch
-                if not repo.is_head_detached():
-                    current_branch = repo.get_head_shorthand()
-                    return current_branch, current_commit
-                else:
-                    # Detached HEAD
-                    return current_commit, current_commit
-
-        except Exception:
-            return None, None

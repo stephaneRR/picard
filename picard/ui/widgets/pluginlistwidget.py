@@ -19,8 +19,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from functools import partial
-
 from PyQt6 import (
     QtCore,
     QtGui,
@@ -34,78 +32,17 @@ from picard.metadata import (
     album_metadata_processors,
     track_metadata_processors,
 )
-from picard.plugin3.asyncops.manager import AsyncPluginManager
 from picard.plugin3.plugin import PluginState
-from picard.plugin3.ref_item import RefItem
 from picard.util import temporary_disconnect
 
-from picard.ui.dialogs.installconfirm import InstallConfirmDialog
 from picard.ui.dialogs.plugin_order_selector import display_plugin_order_selector
 from picard.ui.dialogs.plugininfo import PluginInfoDialog
-from picard.ui.util import font_scaled_size
-from picard.ui.widgets.refselector import RefSelectorWidget
 
 
 # Column positions
 COLUMN_ENABLED = 0
 COLUMN_PLUGIN = 1
 COLUMN_VERSION = 2
-COLUMN_NEW_VERSION = 3
-
-
-class UpdatePanel(QtWidgets.QWidget):
-    """Panel for plugin updates with progress indication."""
-
-    update_selected_plugins = QtCore.pyqtSignal(list)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setup_ui()
-        self.hide()
-
-    def setup_ui(self):
-        layout = QtWidgets.QHBoxLayout(self)
-        layout.setContentsMargins(0, 6, 0, 0)
-        layout.setSpacing(6)
-
-        layout.addStretch()  # Push content to the right
-
-        self.update_progress_bar = QtWidgets.QProgressBar()
-        self.update_progress_bar.setSizePolicy(
-            QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred
-        )
-        self.update_progress_bar.hide()
-
-        self.update_button = QtWidgets.QPushButton(_("Update All"))
-        self.update_button.clicked.connect(self._on_update_clicked)
-
-        layout.addWidget(self.update_progress_bar, 1)  # Stretch factor 1 to expand
-        layout.addWidget(self.update_button)
-
-    def update_button_state(self, count):
-        if count > 0:
-            self.update_button.setText(_("Update Selected ({count})").format(count=count))
-            self.update_button.setEnabled(True)
-            self.show()
-        else:
-            self.update_button.setText(_("Update All"))
-            self.update_button.setEnabled(False)
-            self.hide()
-
-    def show_progress(self, current, total):
-        self.update_progress_bar.setMaximum(total)
-        self.update_progress_bar.setValue(current)
-        self.update_progress_bar.setFormat(f"{current} / {total}")
-        self.update_progress_bar.show()
-
-    def hide_progress(self):
-        self.update_progress_bar.hide()
-        self.update_progress_bar.setFormat("")
-
-    def _on_update_clicked(self):
-        """Handle update button click."""
-        self.update_button.setEnabled(False)  # Disable immediately
-        self.update_selected_plugins.emit([])
 
 
 class PluginListWidget(QtWidgets.QWidget):
@@ -113,13 +50,11 @@ class PluginListWidget(QtWidgets.QWidget):
 
     plugin_selection_changed = QtCore.pyqtSignal(object)  # Emits selected plugin or None
     plugin_state_changed = QtCore.pyqtSignal(object, str)  # Emits plugin and action
-    update_selected_plugins = QtCore.pyqtSignal(list)  # Emits list of plugins to update
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._toggling_plugins = set()  # Track plugins being toggled
         self._failed_enables = set()  # Track plugins that failed to enable
-        self._updating_plugins = set()  # Track plugins being updated
         self.setup_ui()
 
     def setup_ui(self):
@@ -130,7 +65,7 @@ class PluginListWidget(QtWidgets.QWidget):
 
         # Create tree widget
         self.tree_widget = QtWidgets.QTreeWidget()
-        self.tree_widget.setHeaderLabels([_("Enabled"), _("Plugin"), _("Version"), _("New Version")])
+        self.tree_widget.setHeaderLabels([_("Enabled"), _("Plugin"), _("Version")])
         self.tree_widget.setRootIsDecorated(False)
         self.tree_widget.setAlternatingRowColors(True)
         self.tree_widget.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
@@ -142,15 +77,9 @@ class PluginListWidget(QtWidgets.QWidget):
         header.setSectionResizeMode(COLUMN_ENABLED, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(COLUMN_PLUGIN, QtWidgets.QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(COLUMN_VERSION, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(COLUMN_NEW_VERSION, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         header.setStretchLastSection(False)
 
-        # Create update panel
-        self.update_panel = UpdatePanel()
-        self.update_panel.update_selected_plugins.connect(self._update_selected_plugins)
-
         layout.addWidget(self.tree_widget)
-        layout.addWidget(self.update_panel)
 
         # Connect tree widget signals
         self.tree_widget.itemSelectionChanged.connect(self._on_selection_changed)
@@ -163,30 +92,14 @@ class PluginListWidget(QtWidgets.QWidget):
         if not self.plugin_manager:
             raise RuntimeError("Plugin manager not available")
 
-        # Connect to plugin manager signals
-        self.plugin_manager.plugin_ref_switched.connect(self._on_plugin_ref_switched)
-        self.plugin_manager.plugin_reenable_failed.connect(self._on_plugin_reenable_failed)
-
         # Guard to prevent double refresh during operations
         self._refreshing = False
-
-        # Updates dict from options page (plugin_id -> UpdateCheck)
-        self._updates = {}
-
-        # Don't load cached update status during initialization to avoid any network activity
-        # It will be loaded when actually needed during populate_plugins()
 
     def populate_plugins(self, plugins):
         """Populate the widget with plugins."""
         self.tree_widget.clear()
 
-        installed_plugins_uuids = set()
-        has_updates = False
-
         for plugin in sorted(plugins):
-            if plugin.uuid is not None:
-                installed_plugins_uuids.add(plugin.uuid)
-
             item = QtWidgets.QTreeWidgetItem()
 
             # Column 0: Checkbox only (no text), centered
@@ -208,188 +121,20 @@ class PluginListWidget(QtWidgets.QWidget):
             except (AttributeError, Exception):
                 pass
 
-            # Column 2: Version (without update suffix)
-            item.setText(COLUMN_VERSION, self._get_clean_version_display(plugin))
-
-            # Column 3: Update checkbox and new version
-            if self._setup_update_column(item, plugin):
-                has_updates = True
+            # Column 2: Version
+            version = ''
+            if plugin.manifest and plugin.manifest.version:
+                version = str(plugin.manifest.version)
+            item.setText(COLUMN_VERSION, version)
 
             # Store plugin reference
             item.setData(COLUMN_ENABLED, QtCore.Qt.ItemDataRole.UserRole, plugin)
 
             self.tree_widget.addTopLevelItem(item)
 
-        # Hide/show New Version column based on whether there are updates
-        self.tree_widget.setColumnHidden(COLUMN_NEW_VERSION, not has_updates)
-
-        # Update panel visibility
-        self._update_panel_state()
-
-        # Update do not update list to match installed plugins list
-        installed_plugins_ids = {plugin.plugin_id for plugin in plugins}
-        self._resync_do_not_update(installed_plugins_ids)
-
-    def _resync_do_not_update(self, plugin_id_set):
-        """Resync do not update persist list with installed plugins list"""
-        # A plugin could have been removed by another mean, so this ensures we removed old entries
-        config = get_config()
-        do_not_update = set(config.persist['plugins3_do_not_update'])
-        resynced_do_not_update = do_not_update.intersection(plugin_id_set)
-        config.persist['plugins3_do_not_update'] = list(resynced_do_not_update)
-
     def _is_plugin_enabled(self, plugin):
         """Check if plugin is enabled."""
         return plugin.state == PluginState.ENABLED
-
-    def _get_plugin_remote_url(self, plugin):
-        """Get plugin remote URL from metadata."""
-        return self.plugin_manager.get_plugin_remote_url(plugin)
-
-    def _get_clean_version_display(self, plugin):
-        """Get display text for plugin version without update suffix."""
-        return self.plugin_manager.get_plugin_version_display(plugin)
-
-    def _set_update_checkbox_tooltip(self, item, is_checked):
-        """Set tooltip for update checkbox based on its state."""
-        if is_checked:
-            item.setToolTip(COLUMN_NEW_VERSION, _("This plugin is included in updates"))
-        else:
-            item.setToolTip(COLUMN_NEW_VERSION, _("This plugin is excluded from updates"))
-
-    def _setup_update_column(self, item, plugin):
-        """Setup update column with checkbox and new version. Returns True if plugin has updates."""
-        if plugin.plugin_id in self._updating_plugins:
-            # Show in progress for updating plugins
-            item.setText(COLUMN_NEW_VERSION, _("In Progress…"))
-            item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsUserCheckable)
-            return True
-        elif self._has_update_available(plugin):
-            # Get new version info from cache first to avoid expensive calls during updates
-            try:
-                new_version = self._get_new_version(plugin)
-                item.setText(COLUMN_NEW_VERSION, new_version)
-            except Exception:
-                item.setText(COLUMN_NEW_VERSION, _("Available"))
-
-            # Add checkbox for update selection
-            item.setFlags(item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
-
-            # Check if user has previously unchecked this plugin
-            config = get_config()
-            do_not_update = config.persist['plugins3_do_not_update']
-
-            if plugin.plugin_id in do_not_update:
-                item.setCheckState(COLUMN_NEW_VERSION, QtCore.Qt.CheckState.Unchecked)
-                self._set_update_checkbox_tooltip(item, False)
-            else:
-                item.setCheckState(COLUMN_NEW_VERSION, QtCore.Qt.CheckState.Checked)
-                self._set_update_checkbox_tooltip(item, True)
-            return True
-        else:
-            # No update available - no text, no checkbox
-            item.setText(COLUMN_NEW_VERSION, "")
-            item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsUserCheckable)
-            return False
-
-    def _format_update_version(self, update):
-        """Format update version info for display (matching git info format)."""
-        # Use the new RefItem directly from UpdateResult
-        new_ref_item = getattr(update, 'new_ref_item', None)
-        if new_ref_item:
-            return new_ref_item.format() or _("Available")
-
-        # Fallback for old UpdateResult format (backward compatibility)
-        ref = getattr(update, 'new_ref', None) or getattr(update, 'old_ref', 'main')
-        commit = getattr(update, 'new_commit', None)
-
-        # Create RefItem object for formatting - we need to guess the ref type
-        if ref:
-            # Try to determine ref type from name pattern
-            if ref.startswith('v') or '.' in ref:
-                ref_type = RefItem.Type.TAG
-            else:
-                ref_type = RefItem.Type.BRANCH
-        else:
-            # Just a commit hash
-            ref = commit
-            ref_type = RefItem.Type.COMMIT
-
-        ref_item = RefItem(shortname=ref, ref_type=ref_type, commit=commit)
-        return ref_item.format() or _("Available")
-
-    def _get_new_version(self, plugin):
-        """Get the new version available for update."""
-        update = self._updates.get(plugin.plugin_id)
-        if update:
-            return self._format_update_version(update)
-        return _("Available")
-
-    def _update_panel_state(self):
-        """Update panel state based on checked items."""
-        checked_count = self._count_checked_updates()
-        self.update_panel.update_button_state(checked_count)
-
-    def _count_checked_updates(self):
-        """Count items with checked update checkboxes."""
-        count = 0
-        for i in range(self.tree_widget.topLevelItemCount()):
-            item = self.tree_widget.topLevelItem(i)
-            if (
-                item.flags() & QtCore.Qt.ItemFlag.ItemIsUserCheckable
-                and item.checkState(COLUMN_NEW_VERSION) == QtCore.Qt.CheckState.Checked
-            ):
-                count += 1
-        return count
-
-    def _update_selected_plugins(self):
-        """Emit signal to update selected plugins."""
-        plugins_to_update = []
-        for i in range(self.tree_widget.topLevelItemCount()):
-            item = self.tree_widget.topLevelItem(i)
-            if (
-                item.flags() & QtCore.Qt.ItemFlag.ItemIsUserCheckable
-                and item.checkState(COLUMN_NEW_VERSION) == QtCore.Qt.CheckState.Checked
-            ):
-                plugin = item.data(COLUMN_ENABLED, QtCore.Qt.ItemDataRole.UserRole)
-                if plugin:
-                    plugins_to_update.append(plugin)
-
-        if plugins_to_update:
-            self.update_selected_plugins.emit(plugins_to_update)
-
-    def mark_plugin_updating(self, plugin):
-        """Mark a plugin as being updated."""
-        self._updating_plugins.add(plugin.plugin_id)
-        self._refresh_plugin_display(plugin)
-
-    def mark_plugin_update_complete(self, plugin):
-        """Mark a plugin update as complete."""
-        self._updating_plugins.discard(plugin.plugin_id)
-        # Clear caches for updated plugin - it should no longer have updates available
-        self._refresh_plugin_display(plugin)
-
-    def _refresh_plugin_display(self, plugin):
-        """Refresh display for a specific plugin."""
-        for i in range(self.tree_widget.topLevelItemCount()):
-            item = self.tree_widget.topLevelItem(i)
-            item_plugin = item.data(COLUMN_ENABLED, QtCore.Qt.ItemDataRole.UserRole)
-            if item_plugin and item_plugin.plugin_id == plugin.plugin_id:
-                self._setup_update_column(item, plugin)
-                self._update_panel_state()
-                break
-
-    def resizeEvent(self, event):
-        """Handle resize events."""
-        super().resizeEvent(event)
-
-    def show_update_progress(self, current, total):
-        """Show update progress in the panel."""
-        self.update_panel.show_progress(current, total)
-
-    def hide_update_progress(self):
-        """Hide update progress in the panel."""
-        self.update_panel.hide_progress()
 
     def topLevelItemCount(self):
         """Compatibility method for external code."""
@@ -410,14 +155,6 @@ class PluginListWidget(QtWidgets.QWidget):
     def setCurrentItem(self, item):
         """Compatibility method for external code."""
         return self.tree_widget.setCurrentItem(item)
-
-    def set_updates(self, updates):
-        """Set the updates dict from the options page."""
-        self._updates = updates
-
-    def _has_update_available(self, plugin):
-        """Check if plugin has update available."""
-        return plugin.plugin_id in self._updates
 
     def _on_selection_changed(self):
         """Handle selection changes."""
@@ -441,7 +178,7 @@ class PluginListWidget(QtWidgets.QWidget):
                 if plugin.state == PluginState.ENABLED:
                     target_enabled = False  # Disable it
                 elif plugin.state == PluginState.LOADED:
-                    target_enabled = False  # Disable loaded plugins (they're stuck, need to be reset)
+                    target_enabled = False  # Disable loaded plugins
                 elif plugin.state in (PluginState.DISABLED, PluginState.DISCOVERED):
                     # Don't try to enable plugins that have failed before
                     if plugin.plugin_id in self._failed_enables:
@@ -482,30 +219,6 @@ class PluginListWidget(QtWidgets.QWidget):
                     # Emit signal for options dialog to refresh
                     action = "enabled" if actual_enabled else "disabled"
                     self.plugin_state_changed.emit(plugin, action)
-
-        elif column == COLUMN_NEW_VERSION:  # Handle update checkbox
-            # Save checkbox state preference
-            plugin = item.data(COLUMN_ENABLED, QtCore.Qt.ItemDataRole.UserRole)
-            if plugin:
-                config = get_config()
-                do_not_update = list(config.persist['plugins3_do_not_update'])
-
-                is_checked = item.checkState(COLUMN_NEW_VERSION) == QtCore.Qt.CheckState.Checked
-
-                # Update tooltip based on new state
-                self._set_update_checkbox_tooltip(item, is_checked)
-
-                if not is_checked and plugin.plugin_id not in do_not_update:
-                    # User unchecked - add to do not update list
-                    do_not_update.append(plugin.plugin_id)
-                    config.persist['plugins3_do_not_update'] = do_not_update
-                elif is_checked and plugin.plugin_id in do_not_update:
-                    # User checked - remove from do not update list
-                    do_not_update.remove(plugin.plugin_id)
-                    config.persist['plugins3_do_not_update'] = do_not_update
-
-            # Update panel when update checkboxes change
-            self._update_panel_state()
 
     def _refresh_plugin_list(self):
         """Refresh the plugin list to reflect current state."""
@@ -551,36 +264,9 @@ class PluginListWidget(QtWidgets.QWidget):
 
         menu.addSeparator()
 
-        # Update action
-        update_action = menu.addAction(_("Update"))
-        update_action.triggered.connect(lambda: self._update_plugin_from_menu(plugin))
-        update_action.setEnabled(self._has_update_available(plugin))
-
-        # Uninstall action
-        uninstall_action = menu.addAction(_("Uninstall"))
-        uninstall_action.triggered.connect(lambda: self._uninstall_plugin_from_menu(plugin))
-
-        # Reinstall action
-        reinstall_action = menu.addAction(_("Reinstall"))
-        reinstall_action.triggered.connect(lambda: self._reinstall_plugin_from_menu(plugin))
-
-        # Switch ref action
-        switch_ref_action = menu.addAction(_("Switch Ref"))
-        switch_ref_action.triggered.connect(lambda: self._switch_ref_from_menu(plugin))
-
-        menu.addSeparator()
-
-        menu.addSeparator()
-
         # Information action
         info_action = menu.addAction(_("Information"))
         info_action.triggered.connect(lambda: self._show_plugin_info(plugin))
-
-        # View repository action (if available)
-        remote_url = self._get_plugin_remote_url(plugin)
-        if remote_url:
-            view_repo_action = menu.addAction(_("View Repository"))
-            view_repo_action.triggered.connect(lambda: self._view_repository(plugin))
 
         # Report bug action (if available)
         report_bugs_to = self._get_report_bugs_to(plugin)
@@ -615,173 +301,16 @@ class PluginListWidget(QtWidgets.QWidget):
         """Toggle plugin from context menu."""
         try:
             self._toggle_plugin(plugin, enabled)
-            # Refresh immediately now that signal loop is fixed
+            # Refresh immediately
             self._refresh_plugin_list()
             # Emit signal for options dialog to refresh
             action = "enabled" if enabled else "disabled"
             self.plugin_state_changed.emit(plugin, action)
         except Exception as e:
-            # Show error message
             if enabled:
                 self._enable_error_dialog(plugin, str(e))
             else:
                 self._disable_error_dialog(plugin, str(e))
-
-    def _update_plugin_from_menu(self, plugin):
-        """Update plugin from context menu."""
-        async_manager = AsyncPluginManager(self.plugin_manager)
-        async_manager.update_plugin(
-            plugin=plugin, progress_callback=None, callback=partial(self._on_context_update_complete, plugin)
-        )
-
-    def _update_error_dialog(self, plugin, errmsg):
-        QtWidgets.QMessageBox.critical(
-            self,
-            _("Plugin Error"),
-            _('Failed to update plugin "{name}":\n{errmsg}').format(name=plugin.name(), errmsg=errmsg),
-        )
-
-    def _on_context_update_complete(self, plugin, result):
-        """Handle context menu update completion."""
-        if result.success:
-            # Refresh the plugin list
-            self.populate_plugins(self.plugin_manager.plugins)
-            # Emit signal for options dialog to refresh and update updates dict
-            self.plugin_state_changed.emit(plugin, "updated")
-        else:
-            error_msg = str(result.error) if result.error else _("Unknown error")
-            self._update_error_dialog(plugin, error_msg)
-
-    def _uninstall_error_dialog(self, plugin, errmsg):
-        QtWidgets.QMessageBox.critical(
-            self,
-            _("Plugin Error"),
-            _('Failed to uninstall plugin "{name}":\n{errmsg}').format(name=plugin.name(), errmsg=errmsg),
-        )
-
-    def _uninstall_plugin_from_menu(self, plugin):
-        """Uninstall plugin from context menu."""
-        dialog = UninstallPluginDialog(plugin, self)
-        dialog.exec()
-        if dialog.uninstall_confirmed:
-            async_manager = AsyncPluginManager(self.plugin_manager)
-            async_manager.uninstall_plugin(
-                plugin, purge=dialog.purge_config, callback=partial(self._on_uninstall_complete, plugin)
-            )
-
-    def _on_uninstall_complete(self, plugin, result):
-        """Handle uninstall completion."""
-        if result.success:
-            self._refresh_plugin_list()
-            # Emit signal for options dialog to refresh and update updates dict
-            self.plugin_state_changed.emit(plugin, "uninstalled")
-        else:
-            error_msg = str(result.error) if result.error else _("Unknown error")
-            self._uninstall_error_dialog(plugin, error_msg)
-
-    def _reinstall_error_dialog(self, plugin, errmsg):
-        QtWidgets.QMessageBox.critical(
-            self,
-            _("Plugin Error"),
-            _('Failed to reinstall plugin "{name}":\n{errmsg}').format(name=plugin.name(), errmsg=errmsg),
-        )
-
-    def _reinstall_plugin_from_menu(self, plugin):
-        """Reinstall plugin from context menu."""
-        try:
-            # Get plugin URL from metadata
-            uuid = self.plugin_manager._get_plugin_uuid(plugin)
-            metadata = self.plugin_manager._get_plugin_metadata(uuid)
-            if not (metadata and hasattr(metadata, 'url')):
-                self._reinstall_error_dialog(plugin, _("Could not find plugin repository URL"))
-                return
-            plugin_url = metadata.url
-
-            # Get current ref for reinstall
-            current_ref = None
-            try:
-                refs_info = self.plugin_manager.get_plugin_refs_info(plugin.plugin_id)
-                if refs_info:
-                    current_ref = refs_info.get('current_ref')
-            except Exception:
-                pass
-
-            # Show confirmation dialog
-            confirm_dialog = InstallConfirmDialog(plugin.name(), plugin_url, self, plugin.uuid, current_ref)
-            if confirm_dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
-                return
-        except Exception as e:
-            log.error("Failed to reinstall plugin %s: %s", plugin.plugin_id, e, exc_info=True)
-            self._reinstall_error_dialog(plugin, str(e))
-            return
-
-        async_manager = AsyncPluginManager(self.plugin_manager)
-        async_manager.install_plugin(
-            url=plugin_url,
-            ref=confirm_dialog.selected_ref.shortname if confirm_dialog.selected_ref else None,
-            reinstall=True,
-            callback=partial(self._on_reinstall_complete, plugin),
-        )
-
-    def _on_reinstall_complete(self, plugin, result):
-        """Handle reinstall completion."""
-        if result.success:
-            self._refresh_plugin_list()
-            # Emit signal for options dialog to refresh and update updates dict
-            self.plugin_state_changed.emit(plugin, "reinstalled")
-        else:
-            error_msg = str(result.error) if result.error else _("Unknown error")
-            self._reinstall_error_dialog(plugin, error_msg)
-
-    def _switch_ref_error_dialog(self, plugin, errmsg):
-        QtWidgets.QMessageBox.critical(
-            self,
-            _("Plugin Error"),
-            _('Failed to switch ref for plugin "{name}":\n{errmsg}').format(name=plugin.name(), errmsg=errmsg),
-        )
-
-    def _switch_ref_from_menu(self, plugin):
-        """Switch plugin ref from context menu."""
-        dialog = SwitchRefDialog(plugin, self)
-        if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
-            async_manager = AsyncPluginManager(self.plugin_manager)
-            async_manager.switch_ref(
-                plugin=plugin,
-                ref=dialog.selected_ref.shortname if dialog.selected_ref else None,
-                callback=partial(self._on_switch_ref_complete, plugin),
-            )
-
-    def _on_switch_ref_complete(self, plugin, result):
-        """Handle switch ref completion."""
-        if result.success:
-            # Only refresh the display for this specific plugin, not all plugins
-            self._refresh_plugin_display(plugin)
-            # Emit signal for options dialog to refresh and update updates dict
-            self.plugin_state_changed.emit(plugin, "ref switched")
-        else:
-            error_msg = str(result.error) if result.error else _("Unknown error")
-            self._switch_ref_error_dialog(plugin, error_msg)
-
-    def _on_plugin_ref_switched(self, plugin):
-        """Handle plugin ref switched signal."""
-        self._refresh_plugin_list()
-
-    def _on_plugin_reenable_failed(self, plugin, error):
-        """Handle plugin re-enable failure after update/switch."""
-        QtWidgets.QMessageBox.warning(
-            self,
-            _("Plugin Re-enable Failed"),
-            _(
-                'Plugin "{name}" was updated/switched successfully but could not be re-enabled:\n{error}\n\n'
-                'The plugin is currently disabled.'
-            ).format(name=plugin.name(), error=str(error)),
-        )
-
-    def _view_repository(self, plugin):
-        """Open plugin repository in browser."""
-        remote_url = self._get_plugin_remote_url(plugin)
-        if remote_url:
-            QtGui.QDesktopServices.openUrl(QtCore.QUrl(remote_url))
 
     def _get_report_bugs_to(self, plugin):
         """Get report_bugs_to value from plugin manifest."""
@@ -864,75 +393,3 @@ class UninstallPluginDialog(QtWidgets.QMessageBox):
     @property
     def uninstall_confirmed(self) -> bool:
         return self.clickedButton() == self._btn_confirm_uninstall
-
-
-class SwitchRefDialog(QtWidgets.QDialog):
-    """Dialog for switching plugin git ref."""
-
-    def __init__(self, plugin, parent=None):
-        super().__init__(parent)
-        self.plugin = plugin
-        self.selected_ref = None
-        # Cache tagger instance for performance
-        self.tagger = QtCore.QCoreApplication.instance()
-        self.plugin_manager = self.tagger.get_plugin_manager()
-        if not self.plugin_manager:
-            raise RuntimeError("Plugin manager not available")
-        self.setWindowTitle(_("Switch Git Ref"))
-        self.setModal(True)
-        self.resize(font_scaled_size(self, 50, 20))
-        self.setMinimumSize(font_scaled_size(self, 50, 20))
-        self.setup_ui()
-        self.load_refs()
-
-    def setup_ui(self):
-        """Setup the dialog UI."""
-        layout = QtWidgets.QVBoxLayout(self)
-
-        title_label = QtWidgets.QLabel(_('Switch ref for "{name}"').format(name=self.plugin.name()))
-        title_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
-        layout.addWidget(title_label)
-
-        # Use the new RefSelectorWidget (no default tab for switch)
-        self.ref_selector = RefSelectorWidget(include_default=False)
-        layout.addWidget(self.ref_selector)
-
-        # Buttons
-        button_box = QtWidgets.QDialogButtonBox()
-        self.install_button = QtWidgets.QPushButton(_("Yes, Switch!"))
-        button_box.addButton(self.install_button, QtWidgets.QDialogButtonBox.ButtonRole.AcceptRole)
-        button_box.addButton(QtWidgets.QDialogButtonBox.StandardButton.Cancel)
-        button_box.accepted.connect(self._switch_ref)
-        button_box.rejected.connect(self.reject)
-        layout.addWidget(button_box)
-
-    def load_refs(self):
-        """Load available refs from repository."""
-        try:
-            # Get plugin refs info (includes current ref)
-            refs_info = self.plugin_manager.get_plugin_refs_info(self.plugin.plugin_id)
-            if refs_info and refs_info['url']:
-                refs = self.plugin_manager.fetch_all_git_refs(refs_info['url'])
-                current_ref = refs_info.get('current_ref')
-
-                self.ref_selector.load_refs(refs, current_ref=current_ref, plugin_manager=self.plugin_manager)
-        except Exception as e:
-            log.error("SwitchRefDialog: Failed to load refs: %s", e, exc_info=True)
-
-    def _switch_ref(self):
-        """Handle switch button click."""
-        self.selected_ref = self.ref_selector.get_selected_ref()
-
-        if self.selected_ref:
-            self.accept()
-        else:
-            QtWidgets.QMessageBox.warning(
-                self,
-                _("No Ref Selected"),
-                _("Please select or enter a ref to switch to."),
-            )
-
-    def _uninstall(self):
-        """Handle uninstall button click."""
-        self.purge_config = self.purge_checkbox.isChecked()
-        self.accept()
