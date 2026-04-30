@@ -132,10 +132,6 @@ class InterfaceToolbarOptionsPage(OptionsPage):
             N_("Generate Fingerprints"),
             'fingerprint',
         ),
-        MainAction.PLAY: ToolbarButtonDesc(
-            N_("Play"),
-            'play',
-        ),
         MainAction.PLAY_FILE_EXTERNAL: ToolbarButtonDesc(
             N_("Open in Player"),
             'play-music',

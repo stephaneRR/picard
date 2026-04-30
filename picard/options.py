@@ -313,13 +313,6 @@ TextOption('setting', 'ui_language', '', title=N_("User interface language"))
 TextOption('setting', 'ui_theme', DEFAULT_THEME_NAME, title=N_("User interface color theme"))
 BoolOption('setting', 'use_adv_search_syntax', False, title=N_("Use advanced search syntax"))
 
-# picard/ui/options/interface_player.py
-# Audio Player
-BoolOption('setting', 'player_now_playing', True, title=N_('Enable "now playing" notifications'))
-BoolOption('setting', 'listenbrainz_enabled', False, title=N_('Enable ListenBrainz listen submissions'))
-BoolOption('setting', 'listenbrainz_submit_only_tagged', True, title=N_('Submit only tagged files ListenBrainz'))
-TextOption('setting', 'listenbrainz_token', '', title=N_('ListenBrainz user token'))
-
 # picard/ui/options/interface_colors.py
 # Colors
 Option(

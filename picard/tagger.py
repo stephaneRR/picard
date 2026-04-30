@@ -285,7 +285,6 @@ class Tagger(QtWidgets.QApplication):
         self._config_file = cmdline_args.config_file
         self._debug_opts = cmdline_args.debug_opts
         self._debug = cmdline_args.debug or 'PICARD_DEBUG' in os.environ
-        self._no_player = cmdline_args.no_player
         self._no_plugins = cmdline_args.no_plugins
         self._no_restore = cmdline_args.no_restore
         self._to_load = cmdline_args.processable
@@ -465,7 +464,7 @@ class Tagger(QtWidgets.QApplication):
     def _init_ui(self, config):
         """Initialize User Interface / Main Window"""
         self.enable_menu_icons(config.setting['show_menu_icons'])
-        self.window = MainWindow(disable_player=self._no_player)
+        self.window = MainWindow()
 
         # On macOS temporary files get deleted after 3 days not being accessed.
         # Touch these files regularly to keep them alive if Picard
@@ -1592,7 +1591,6 @@ If a new instance will not be spawned files/directories will be passed to the ex
         "(use `-e help` for a list of the available commands)",
         metavar='COMMAND',
     )
-    parser.add_argument('-M', '--no-player', action='store_true', help="disable built-in media player")
     parser.add_argument('-N', '--no-restore', action='store_true', help="do not restore positions and/or sizes")
     parser.add_argument('-P', '--no-plugins', action='store_true', help="do not load any plugins")
     parser.add_argument('--no-crash-dialog', action='store_true', help="disable the crash dialog")

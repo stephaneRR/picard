@@ -218,7 +218,6 @@ class BaseTreeView(QtWidgets.QTreeWidget):
         obj = item.obj
         plugin_actions = None
         can_view_info = self.window.action_map[MainAction.VIEW_INFO].isEnabled()
-        can_play = self.window.player is not None
         menu = QtWidgets.QMenu(self)
         menu.setSeparatorsCollapsible(True)
 
@@ -228,7 +227,6 @@ class BaseTreeView(QtWidgets.QTreeWidget):
         if isinstance(obj, Track):
             add_actions(
                 MainAction.VIEW_INFO if can_view_info else None,
-                MainAction.PLAY if can_play else None,
             )
             plugin_actions = list(ext_point_track_actions)
             if obj.num_linked_files == 1:
@@ -249,7 +247,6 @@ class BaseTreeView(QtWidgets.QTreeWidget):
         elif isinstance(obj, Cluster):
             add_actions(
                 MainAction.VIEW_INFO if can_view_info else None,
-                MainAction.PLAY if can_play else None,
                 MainAction.BROWSER_LOOKUP,
                 MainAction.SUBMIT_CLUSTER,
                 '-',
@@ -264,14 +261,11 @@ class BaseTreeView(QtWidgets.QTreeWidget):
                 MainAction.AUTOTAG,
                 MainAction.ANALYZE,
                 MainAction.GENERATE_FINGERPRINTS,
-                '-',
-                MainAction.PLAY if can_play else None,
             )
             plugin_actions = list(ext_point_clusterlist_actions)
         elif isinstance(obj, File):
             add_actions(
                 MainAction.VIEW_INFO if can_view_info else None,
-                MainAction.PLAY if can_play else None,
                 MainAction.PLAY_FILE_EXTERNAL,
                 MainAction.OPEN_FOLDER,
                 MainAction.BROWSER_LOOKUP,
@@ -287,7 +281,6 @@ class BaseTreeView(QtWidgets.QTreeWidget):
         elif isinstance(obj, Album):
             add_actions(
                 MainAction.VIEW_INFO if can_view_info else None,
-                MainAction.PLAY if can_play else None,
                 MainAction.BROWSER_LOOKUP,
                 MainAction.GENERATE_FINGERPRINTS if obj.get_num_total_files() > 0 else None,
                 '-',

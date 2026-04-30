@@ -84,9 +84,7 @@ class MainAction(str, Enum):
     OPEN_FOLDER = 'open_folder_action'
     OPTIONS = 'options_action'
     PASTE = 'paste_action'
-    PLAY = 'play_action'
     PLAY_FILE_EXTERNAL = 'play_file_external_action'
-    PLAYER_TOOLBAR_TOGGLE = 'player_toolbar_toggle_action'  # defined in MainWindow
     REFRESH = 'refresh_action'
     REMOVE = 'remove_action'
     REPORT_BUG = 'report_bug_action'

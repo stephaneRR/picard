@@ -156,7 +156,6 @@ from picard.ui.passworddialog import (
     PasswordDialog,
     ProxyDialog,
 )
-from picard.ui.player import NowPlayingService
 from picard.ui.savewarningdialog import SaveWarningDialog
 from picard.ui.scripteditor import ScriptEditorDialog
 from picard.ui.scripteditor.examples import ScriptEditorExamples
@@ -187,7 +186,7 @@ class MainWindow(QtWidgets.QMainWindow, PreserveGeometry):
     selection_updated = QtCore.pyqtSignal(object)
     ready_for_display = QtCore.pyqtSignal()
 
-    def __init__(self, parent=None, disable_player=False):
+    def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.action_map = {}
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_NativeWindow)
@@ -212,12 +211,9 @@ class MainWindow(QtWidgets.QMainWindow, PreserveGeometry):
         )
 
         self.toolbar = None
-        self.player = None
         self.status_indicators = []
         if DesktopStatusIndicator:
             self.ready_for_display.connect(self._setup_desktop_status_indicator)
-        if not disable_player:
-            self._setup_player()
 
         self.script_editor_dialog = None
 
@@ -321,37 +317,6 @@ class MainWindow(QtWidgets.QMainWindow, PreserveGeometry):
         # Initially set the plugin updates available status in the status bar.
         self._update_statusbar_plugin_updates_available()
 
-    def _setup_player(self):
-        # Local import: player depends on QtMultimedia which is an optional runtime dependency
-        from picard.ui.player import get_now_playing_service, get_player
-        from picard.ui.player.listenbrainz import ListenBrainzSubmissionService
-
-        player = get_player(self)
-        if not (player and player.available):
-            return
-
-        self.player = player
-        self.player.error.connect(self._on_player_error)
-        self.player.playback_available.connect(self._on_player_available_changed)
-
-        # Setup now playing services
-        self._now_playing_services: list[tuple[NowPlayingService, str]] = []
-        now_playing_service = get_now_playing_service(player)
-        if now_playing_service:
-            self._now_playing_services.append((now_playing_service, 'player_now_playing'))
-        self._now_playing_services.append(
-            (ListenBrainzSubmissionService(player, self.tagger.webservice, self.tagger), 'listenbrainz_enabled')
-        )
-        self.update_now_playing_services()
-
-    def update_now_playing_services(self):
-        config = get_config()
-        for service, config_key in getattr(self, '_now_playing_services', []):
-            if config.setting[config_key]:
-                service.enable()
-            else:
-                service.disable()
-
     def handle_settings_changed(self, name, old_value, new_value):
         if name == 'rename_files':
             self.action_map[MainAction.ENABLE_RENAMING].setChecked(new_value)
@@ -418,8 +383,6 @@ class MainWindow(QtWidgets.QMainWindow, PreserveGeometry):
         if config.setting['quit_confirmation'] and not self.show_quit_confirmation():
             event.ignore()
             return
-        if self.player:
-            self.player.save_settings()
         self.saveWindowState()
         # Confirm loss of unsaved changes in script editor.
         if self.script_editor_dialog:
@@ -948,7 +911,6 @@ class MainWindow(QtWidgets.QMainWindow, PreserveGeometry):
             MainAction.SHOW_TOOLBAR,
             MainAction.SEARCH_TOOLBAR_TOGGLE,
             MainAction.SHOW_FILTERBAR,
-            MainAction.PLAYER_TOOLBAR_TOGGLE if self.player else None,
         )
 
         self.script_quick_selector_menu = QtWidgets.QMenu(_("&Select file naming script"))
@@ -1021,13 +983,9 @@ class MainWindow(QtWidgets.QMainWindow, PreserveGeometry):
         if config.setting['toolbar_show_labels']:
             style = QtCore.Qt.ToolButtonStyle.ToolButtonTextUnderIcon
         self.toolbar.setToolButtonStyle(style)
-        if self.player:
-            self.player_toolbar.setToolButtonStyle(style)
 
     def _create_toolbar(self):
         self._create_search_toolbar()
-        if self.player:
-            self._create_player_toolbar()
         self.create_action_toolbar()
         self.update_toolbar_style()
 
@@ -1097,19 +1055,6 @@ class MainWindow(QtWidgets.QMainWindow, PreserveGeometry):
             self._apply_toolbar_extension_button_dark_theme_styling(toolbar)
 
         self.show_toolbar()
-
-    def _create_player_toolbar(self):
-        """Create a toolbar with internal player control elements"""
-        # Local import: player depends on QtMultimedia which is an optional runtime dependency
-        from picard.ui.player.toolbar import PlayerToolbar
-
-        toolbar = PlayerToolbar(self.player, self)
-        self.addToolBar(QtCore.Qt.ToolBarArea.BottomToolBarArea, toolbar)
-        if self._is_wayland:
-            toolbar.setFloatable(False)  # https://bugreports.qt.io/browse/QTBUG-92191
-        self.action_map[MainAction.PLAYER_TOOLBAR_TOGGLE] = toolbar.toggleViewAction()
-        toolbar.hide()  # Hide by default
-        self.player_toolbar = toolbar
 
     def _create_search_toolbar(self):
         config = get_config()
@@ -1559,27 +1504,9 @@ class MainWindow(QtWidgets.QMainWindow, PreserveGeometry):
 
         self._ensure_fingerprinting_configured(callback)
 
-    def play(self):
-        if self.player:
-            self.player.set_objects(self.selected_objects)
-            self.player.play()
-
     def play_file_external(self):
         for file in iter_files_from_objects(self.selected_objects):
             open_local_path(file.filename)
-
-    def _on_player_error(self, error, msg):
-        self.set_statusbar_message(msg, echo=log.warning, translate=None)
-
-    def _on_player_available_changed(self, available):
-        if not available and self.selected_objects:
-            # requeue currently selected items
-            self._update_player_items()
-
-    def _update_player_items(self):
-        if self.player:
-            # Run on event loop
-            QtCore.QTimer.singleShot(0, partial(self.player.set_objects, self.selected_objects))
 
     def open_folder(self):
         folders = iter_unique(os.path.dirname(f.filename) for f in iter_files_from_objects(self.selected_objects))
@@ -1791,7 +1718,6 @@ class MainWindow(QtWidgets.QMainWindow, PreserveGeometry):
         self.enable_action(MainAction.REFRESH, can_refresh)
         self.enable_action(MainAction.AUTOTAG, can_autotag)
         self.enable_action(MainAction.BROWSER_LOOKUP, can_browser_lookup)
-        self.enable_action(MainAction.PLAY, have_files)
         self.enable_action(MainAction.PLAY_FILE_EXTERNAL, have_files)
         self.enable_action(MainAction.OPEN_FOLDER, have_files)
         self.enable_action(MainAction.DISCID_FROM_TAGS, have_files)
@@ -1824,9 +1750,6 @@ class MainWindow(QtWidgets.QMainWindow, PreserveGeometry):
 
         # Clear any existing status bar messages
         self.set_statusbar_message("")
-
-        if self.player:
-            self._update_player_items()
 
         metadata_visible = self.metadata_view.isVisible()
         coverart_visible = metadata_visible and self.cover_art_box.isVisible()
