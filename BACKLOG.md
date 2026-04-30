@@ -5,10 +5,9 @@
 ## Section 1 — Élagage (vérifié par le code, ~7 000 lignes)
 
 ### Retraits confirmés
-- [ ] Retirer player intégré Qt Multimedia (ui/player/, ~15 refs dans mainwindow — garder PLAY_FILE_EXTERNAL "Ouvrir dans lecteur système")
-- [ ] Retirer plugin3 manager/git/CLI/registry (plugin3/manager/, asyncops/, cli.py, installable.py, categories.py — ~3 800 lignes)
-- [ ] Retirer module git/ (~1 643 lignes, refs dans plugin3 + tagger.py:144)
-- [ ] Garder support plugins v2 (zip/dossier) pour installation manuelle de plugins tiers
+- [x] Retirer player intégré Qt Multimedia ✅ TASK-01 — 2 188 lignes, 3 commits, 4 618 tests OK
+- [x] Retirer plugin3 manager/git/CLI + module git/ ✅ TASK-02 — 10 290 lignes, 2 commits, 4 595 tests OK
+- [x] Garder support plugins v2 (zip/dossier) pour installation manuelle de plugins tiers ✅ PluginManager local créé
 
 ### Modules gardés (hypothèses de retrait invalidées par le code)
 - Script editor : couplé au renaming (imports directs lignes 58-60 de ui/options/renaming.py) — garder, masquer le bouton "Edit script"
@@ -17,9 +16,9 @@
 - CD lookup : utilisé par Stephane — garder
 
 ### Intégrations natives
-- [ ] Intégrer provider Amazon cover art en natif (⚠️ picard-plugins/plugins/amazon est quasi-vide 0.1KB — code à réécrire ou à retrouver dans l'historique git)
-- [ ] Intégrer provider Deezer cover art en natif (picard-plugins/plugins/deezerart, ⚠️ GPL-3.0 — compatible avec notre GPL-2.0-or-later via clause "or later", fichiers intégrés seront sous GPL-3.0)
-- [ ] Intégrer provider fanart.tv en natif (picard-plugins/plugins/fanarttv, GPL-2.0)
+- [x] Intégrer provider Amazon cover art en natif ✅ TASK-03 — depuis plugin original fourni par Stephane
+- [x] Intégrer provider Deezer cover art en natif ✅ TASK-03 — GPL-3.0 compatible, inliné depuis 3 fichiers
+- [x] Intégrer provider fanart.tv en natif ✅ TASK-03 — API key publique, release group ID
 
 ## Section 2 — Performance (vérifié par le code)
 

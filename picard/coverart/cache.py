@@ -123,6 +123,11 @@ class CoverArtDiskCache:
                 log.debug("Cover art cached: %s (%d bytes)", filepath, len(data))
             except OSError as e:
                 log.warning("Cover art cache write error: %s", e)
+                return
+            if self.size() > self._max_size_bytes:
+                self._evict_expired_unlocked()
+                if self.size() > self._max_size_bytes:
+                    self._evict_lru_unlocked()
 
     def has(self, release_id: str, image_url: str, image_type: str) -> bool:
         """Check if image is in cache without loading data."""

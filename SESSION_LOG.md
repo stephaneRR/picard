@@ -104,3 +104,19 @@
 - 3 commits : retrait principal (2 188 lignes), nettoyage options orphelines, nettoyage test
 - QA passé : tous imports vérifiés, PLAY_FILE_EXTERNAL intact
 - 4 618 tests passent, 0 échec
+
+### TASK-02 — Retirer plugin3 manager/git/CLI ✅
+- 2 commits : retrait principal (9 742 lignes, 40 fichiers), fix tests (548 lignes supprimées)
+- Nouveau PluginManager local minimal (264 lignes) remplace le manager git-based
+- Extension points intacts, API plugin intacte
+- Fix : config key alignée (plugins3_enabled_plugins), enable_plugin compatible mock, QObject parent
+- 4 595 tests passent, 0 échec
+
+### TASK-03 — Intégrer providers Amazon/Deezer/fanart.tv en natif ✅
+- 1 commit : 642 lignes ajoutées (amazon.py 139L, deezer.py 337L, fanarttv.py 147L)
+- QA passé : 11/11 checks OK, code vérifié contre les plugins originaux fournis par Stephane
+- Amazon : fidèle au plugin original (ASIN, serveurs régionaux, match_url_relations)
+- Deezer : inliné depuis 3 fichiers, adapté PyQt5→PyQt6, GPL-3.0 compatible
+- fanart.tv : API key publique, release group ID, cd art
+- Ordre par défaut : Amazon, Deezer, fanart.tv, CAA, CaaReleaseGroup
+- 4 595 tests passent, 0 échec
