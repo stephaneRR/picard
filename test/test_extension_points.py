@@ -37,7 +37,7 @@ from picard.extension_points.script_variables import (
     get_plugin_variable_names,
     register_script_variable,
 )
-from picard.plugin3.manager import PluginManager
+from picard.plugin3.pluginmanager import PluginManager
 from picard.plugin3.plugin import Plugin
 
 

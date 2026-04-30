@@ -92,3 +92,15 @@
 - Phase 1 : ajouter nos features dans l'UI actuelle, utiliser le produit
 - Phase 2 : vue simplifiée switchable (setVisible(false)) basée sur l'usage réel
 - Garder la vue experte accessible en dessous
+
+## 2026-05-01 — Session 2 : Implémentation
+
+### Environnement de dev
+- uv installé (Homebrew v0.11.8)
+- Venv Python 3.13.13 créé (Python 3.14 du système incompatible avec pip)
+- pytest installé, 4 618 tests passent
+
+### TASK-01 — Retirer player intégré ✅
+- 3 commits : retrait principal (2 188 lignes), nettoyage options orphelines, nettoyage test
+- QA passé : tous imports vérifiés, PLAY_FILE_EXTERNAL intact
+- 4 618 tests passent, 0 échec

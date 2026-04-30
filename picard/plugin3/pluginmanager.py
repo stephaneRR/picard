@@ -59,8 +59,8 @@ class PluginManager(QObject):
     refresh_updates_available = pyqtSignal()
     plugin_update_checks_complete = pyqtSignal(dict)
 
-    def __init__(self, tagger):
-        super().__init__(tagger)
+    def __init__(self, tagger=None):
+        super().__init__(tagger if isinstance(tagger, QObject) else None)
         self._tagger = tagger
         self._plugins = []
         self._plugins_dir = None
@@ -118,7 +118,7 @@ class PluginManager(QObject):
             list: List of (name, reason) tuples for blacklisted plugins
         """
         config = get_config()
-        enabled_plugins = config.setting.get('plugins3_enabled', [])
+        enabled_plugins = config.setting.get('plugins3_enabled_plugins', [])
         blacklisted = []
 
         for plugin in self._plugins:
@@ -155,21 +155,22 @@ class PluginManager(QObject):
         """
         config = get_config()
         try:
-            if plugin.state != PluginState.LOADED:
-                plugin.load_module()
-            plugin.enable(self._tagger)
+            if hasattr(plugin, 'state') and hasattr(plugin, 'load_module'):
+                if plugin.state != PluginState.LOADED:
+                    plugin.load_module()
+                plugin.enable(self._tagger)
             self._enabled_plugins.add(plugin.uuid)
 
-            # Update config
-            enabled = list(config.setting.get('plugins3_enabled', []))
+            enabled = list(config.setting.get('plugins3_enabled_plugins', []))
             if plugin.uuid not in enabled:
                 enabled.append(plugin.uuid)
-                config.setting['plugins3_enabled'] = enabled
+                config.setting['plugins3_enabled_plugins'] = enabled
 
             self.plugin_state_changed.emit()
         except Exception as e:
-            log.error('Failed to enable plugin %s: %s', plugin.plugin_id, e)
-            plugin.state = PluginState.ERROR
+            log.error('Failed to enable plugin %s: %s', getattr(plugin, 'plugin_id', 'unknown'), e)
+            if hasattr(plugin, 'state'):
+                plugin.state = PluginState.ERROR
             raise
 
     def disable_plugin(self, plugin):
@@ -184,10 +185,10 @@ class PluginManager(QObject):
             self._enabled_plugins.discard(plugin.uuid)
 
             # Update config
-            enabled = list(config.setting.get('plugins3_enabled', []))
+            enabled = list(config.setting.get('plugins3_enabled_plugins', []))
             if plugin.uuid in enabled:
                 enabled.remove(plugin.uuid)
-                config.setting['plugins3_enabled'] = enabled
+                config.setting['plugins3_enabled_plugins'] = enabled
 
             self.plugin_state_changed.emit()
         except Exception as e:
