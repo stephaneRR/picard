@@ -94,6 +94,9 @@ DEFAULT_DRIVES = get_default_cdrom_drives()
 DEFAULT_CA_NEVER_REPLACE_TYPE_INCLUDE = ('front',)
 DEFAULT_CA_NEVER_REPLACE_TYPE_EXCLUDE = ('matrix/runout', 'raw/unedited', 'watermark')
 DEFAULT_CA_PROVIDERS = [
+    ('Amazon', True),
+    ('Deezer', True),
+    ('fanart.tv', True),
     ('Cover Art Archive', True),
     ('UrlRelationships', True),
     ('CaaReleaseGroup', True),

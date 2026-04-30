@@ -220,6 +220,16 @@ BoolOption('setting', 'show_cover_art_details_filesize', True, title=N_("Show co
 BoolOption('setting', 'show_cover_art_details_dimensions', True, title=N_("Show cover art dimensions"))
 BoolOption('setting', 'show_cover_art_details_mimetype', True, title=N_("Show cover art MIME type"))
 
+# picard/coverart/providers/deezer.py
+# Deezer cover art provider
+TextOption('setting', 'deezerart_size', 'big', title=N_("Deezer cover art size"))
+FloatOption('setting', 'deezerart_min_similarity', 0.6, title=N_("Deezer minimum similarity"))
+
+# picard/coverart/providers/fanarttv.py
+# fanart.tv cover art provider
+TextOption('setting', 'fanarttv_client_key', '', title=N_("fanart.tv personal API key"))
+TextOption('setting', 'fanarttv_use_cdart', 'noalbumart', title=N_("fanart.tv CD art preference"))
+
 # picard/ui/options/cover_processing.py
 # Cover Art Image Processing
 BoolOption('setting', 'filter_cover_by_size', False, title=N_("Discard small images"))
