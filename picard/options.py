@@ -142,8 +142,6 @@ IntOption('setting', 'log_verbosity', logging.WARNING)
 # picard/ui/mainwindow.py
 #
 TextOption('persist', 'current_directory', "")
-FloatOption('persist', 'mediaplayer_playback_rate', 1.0)
-IntOption('persist', 'mediaplayer_volume', 50)
 BoolOption('persist', 'view_cover_art', True)
 BoolOption('persist', 'view_file_browser', False)
 BoolOption('persist', 'view_metadata_view', True)

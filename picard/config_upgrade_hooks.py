@@ -541,8 +541,6 @@ def upgrade_to_v3_0_0dev1(config):
     keep_persist = (
         'current_browser_path',
         'current_directory',
-        'mediaplayer_playback_rate',
-        'mediaplayer_volume',
         'oauth_access_token_expires',
         'oauth_access_token',
         'oauth_refresh_token_scopes',
