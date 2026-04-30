@@ -35,6 +35,7 @@ from picard import log
 from picard.album import Album
 from picard.album_requests import TaskType
 from picard.config import get_config
+from picard.coverart.cache import get_cover_art_cache
 from picard.coverart.image import (
     CoverArtImage,
     CoverArtImageError,
@@ -197,6 +198,25 @@ class CoverArt:
                 return CoverArtProvider.QueueState.FINISHED
         # download image from the web
         elif image.url:
+            # Check persistent disk cache before downloading
+            cache = get_cover_art_cache()
+            if cache is not None:
+                cached_data = cache.get(
+                    self.album.id,
+                    image.url.toString(),
+                    image.types_as_string(translate=False),
+                )
+                if cached_data is not None:
+                    log.debug("Cover art cache hit for %s: %s",
+                              self.album.id, image.url.toString())
+                    try:
+                        image_info = imageinfo.identify(cached_data)
+                        self._process_image_data(image, cached_data, image_info)
+                        return CoverArtProvider.QueueState.WAIT
+                    except imageinfo.IdentificationError as e:
+                        log.warning("Cached image identification failed for %s, "
+                                    "re-downloading: %s", image.url.toString(), e)
+
             self._message(
                 N_('Downloading cover art of type "%(type)s" for %(albumid)s from %(host)s …'),
                 {
@@ -284,6 +304,16 @@ class CoverArt:
             )
             try:
                 image_info = imageinfo.identify(data)
+                # Save to persistent disk cache
+                cache = get_cover_art_cache()
+                if cache is not None and image.url:
+                    cache.put(
+                        self.album.id,
+                        image.url.toString(),
+                        image.types_as_string(translate=False),
+                        data,
+                        image_info.format_info.extension,
+                    )
                 # next_in_queue will be called by _process_image_data
                 self._process_image_data(image, data, image_info)
                 return

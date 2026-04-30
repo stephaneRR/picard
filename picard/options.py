@@ -220,6 +220,12 @@ BoolOption('setting', 'show_cover_art_details_filesize', True, title=N_("Show co
 BoolOption('setting', 'show_cover_art_details_dimensions', True, title=N_("Show cover art dimensions"))
 BoolOption('setting', 'show_cover_art_details_mimetype', True, title=N_("Show cover art MIME type"))
 
+# picard/coverart/cache.py
+# Cover Art Disk Cache
+BoolOption('setting', 'cover_art_cache_enabled', True, title=N_("Enable cover art disk cache"))
+IntOption('setting', 'cover_art_cache_max_size_mb', 1024, title=N_("Cover art cache maximum size (MB)"))
+IntOption('setting', 'cover_art_cache_ttl_days', 30, title=N_("Cover art cache TTL (days)"))
+
 # picard/coverart/providers/deezer.py
 # Deezer cover art provider
 TextOption('setting', 'deezerart_size', 'big', title=N_("Deezer cover art size"))
