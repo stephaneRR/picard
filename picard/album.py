@@ -69,6 +69,10 @@ from picard.album_requests import (
 from picard.cluster import Cluster
 from picard.collection import add_release_to_user_collections
 from picard.config import get_config
+from picard.webservice.cache import (
+    _CACHE_HIT_SENTINEL,
+    get_metadata_cache,
+)
 from picard.const import VARIOUS_ARTISTS_ID
 from picard.file import File
 from picard.i18n import (
@@ -544,6 +548,11 @@ class Album(MetadataItem):
             else:
                 try:
                     parse_result = self._parse_release(document)
+                    # Save to metadata cache on successful parse
+                    if parse_result in (ParseResult.PARSED, ParseResult.MISSING_TRACK_RELS):
+                        cache = get_metadata_cache()
+                        if cache and document:
+                            cache.put(self.id, document)
                     config = get_config()
                     if parse_result == ParseResult.MISSING_TRACK_RELS:
                         log.debug(
@@ -957,6 +966,18 @@ class Album(MetadataItem):
         if config.setting['enable_ratings']:
             require_authentication = True
             inc |= {'user-ratings'}
+
+        # Check metadata cache first (skip if refresh=True)
+        if not refresh:
+            cache = get_metadata_cache()
+            if cache:
+                cached_data = cache.get(self.id)
+                if cached_data:
+                    log.debug("Metadata cache hit for %s", self.id)
+                    # Set sentinel so _release_request_finished doesn't bail
+                    self._load_request = _CACHE_HIT_SENTINEL
+                    self._release_request_finished(cached_data, None, None)
+                    return
 
         def create_request():
             self._load_request = self.tagger.mb_api.get_release_by_id(

@@ -227,6 +227,11 @@ BoolOption('setting', 'cover_art_cache_enabled', True, title=N_("Enable cover ar
 IntOption('setting', 'cover_art_cache_max_size_mb', 1024, title=N_("Cover art cache maximum size (MB)"))
 IntOption('setting', 'cover_art_cache_ttl_days', 30, title=N_("Cover art cache TTL (days)"))
 
+# picard/webservice/cache.py
+# Metadata Disk Cache
+BoolOption('setting', 'metadata_cache_enabled', True, title=N_("Enable metadata disk cache"))
+IntOption('setting', 'metadata_cache_ttl_days', 7, title=N_("Metadata cache TTL (days)"))
+
 # picard/coverart/providers/deezer.py
 # Deezer cover art provider
 TextOption('setting', 'deezerart_size', 'big', title=N_("Deezer cover art size"))
