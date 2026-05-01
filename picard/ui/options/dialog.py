@@ -73,6 +73,7 @@ from picard.ui.options import (  # noqa: F401 # pylint: disable=unused-import
     OptionsCheckError,
     OptionsPage,
     advanced,
+    automation,
     cdlookup,
     cover,
     cover_processing,
