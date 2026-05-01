@@ -55,7 +55,18 @@ class InfoStatus(QtWidgets.QWidget, Ui_InfoStatus):
         self.label1.hide()
         self.label2.setPixmap(self.icon_file.pixmap(size))
         self.label3.setPixmap(self.icon_cd.pixmap(size))
-        self.label4.setPixmap(self.icon_file_pending.pixmap(size))
+
+        # Add a visual separator before the pending indicators
+        separator = QtWidgets.QFrame(self)
+        separator.setFrameShape(QtWidgets.QFrame.Shape.VLine)
+        separator.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
+        separator.setFixedWidth(2)
+        separator.setStyleSheet("QFrame { margin: 2px 4px; }")
+        layout = self.horizontalLayout
+        val4_index = layout.indexOf(self.val4)
+        layout.insertWidget(val4_index, separator)
+
+        self.label4.setPixmap(self.icon_file_pending.pixmap(size, QtGui.QIcon.Mode.Disabled))
         self.label5.setPixmap(self.icon_download.pixmap(size, QtGui.QIcon.Mode.Disabled))
         self._init_tooltips()
 
@@ -70,8 +81,8 @@ class InfoStatus(QtWidgets.QWidget, Ui_InfoStatus):
         t1 = _("Estimated Time")
         t2 = _("Files")
         t3 = _("Albums")
-        t4 = _("Pending files")
-        t5 = _("Pending requests")
+        t4 = _("Pending files — files waiting to be saved")
+        t5 = _("Pending network requests — lookups and downloads in progress")
         self.val1.setToolTip(t1)
         self.label1.setToolTip(t1)
         self.val2.setToolTip(t2)
@@ -168,6 +179,11 @@ class InfoStatus(QtWidgets.QWidget, Ui_InfoStatus):
         self.val3.setText(str(num))
 
     def set_pending_files(self, num):
+        if num <= 0:
+            enabled = QtGui.QIcon.Mode.Disabled
+        else:
+            enabled = QtGui.QIcon.Mode.Normal
+        self.label4.setPixmap(self.icon_file_pending.pixmap(self._size, enabled))
         self.val4.setText(str(num))
 
     def set_pending_requests(self, num):
