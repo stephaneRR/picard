@@ -210,6 +210,7 @@ class ASFFile(File):
         config = get_config()
         self.__casemap = {}
         file = ASF(encode_filename(filename))
+        self._cache_mutagen_file(file, filename)
         metadata = Metadata()
         if not file.tags:
             return metadata
@@ -263,7 +264,8 @@ class ASFFile(File):
     def _save(self, filename, metadata):
         log.debug("Saving file %r", filename)
         config = get_config()
-        file = ASF(encode_filename(filename))
+        cached = self._get_cached_mutagen_file(filename)
+        file = cached if cached is not None else ASF(encode_filename(filename))
         tags = file.tags
         if not tags:
             return

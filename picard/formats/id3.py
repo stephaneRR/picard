@@ -330,6 +330,7 @@ class ID3File(File):
         """Initialize loading process and return necessary parameters."""
         self.__casemap = {}
         file = self._get_file(encode_filename(filename))
+        self._cache_mutagen_file(file, filename)
         tags = file.tags or {}
         config = get_config()
 
@@ -1104,6 +1105,14 @@ class NonCompatID3File(ID3File):
         return self._File(filename, known_frames=compatid3.known_frames)
 
     def _get_tags(self, filename):
+        # Note: we intentionally do NOT use the cached Mutagen file here.
+        # The load process upgrades v2.3 frames to v2.4 (e.g., TXXX:mood -> TMOO).
+        # Reusing those upgraded tags at save time causes data loss when saving
+        # back as v2.3, because update_to_v23() drops v2.4-only frames like TMOO
+        # without re-creating the v2.3 fallback (TXXX:mood).
+        # Clear the cache so it doesn't leak memory.
+        self._cached_mutagen_file = None
+        self._cached_mutagen_mtime = None
         file = self._get_file(filename)
         if file.tags is None:
             file.add_tags()

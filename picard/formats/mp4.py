@@ -183,6 +183,7 @@ class MP4File(File):
         log.debug("Loading file %r", filename)
         self.__casemap = {}
         file = MP4(encode_filename(filename))
+        self._cache_mutagen_file(file, filename)
         tags = file.tags or {}
         metadata = Metadata()
         for name, values in tags.items():
@@ -257,7 +258,8 @@ class MP4File(File):
     def _save(self, filename, metadata):
         log.debug("Saving file %r", filename)
         config = get_config()
-        file = MP4(encode_filename(self.filename))
+        cached = self._get_cached_mutagen_file(filename)
+        file = cached if cached is not None else MP4(encode_filename(self.filename))
         if file.tags is None:
             file.add_tags()
         tags = file.tags

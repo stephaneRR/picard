@@ -351,6 +351,53 @@ class File(MetadataItem):
             return None
         return self._load(filename)
 
+    def _cache_mutagen_file(self, mutagen_file, filename):
+        """Cache the Mutagen file object for reuse at save time.
+
+        Also saves the original tags reference, since _load methods may
+        replace file.tags (e.g., with a plain dict when tags are None/empty).
+        """
+        self._cached_mutagen_file = mutagen_file
+        self._cached_mutagen_tags = mutagen_file.tags
+        try:
+            self._cached_mutagen_mtime = os.path.getmtime(filename)
+        except OSError:
+            self._cached_mutagen_mtime = None
+
+    def _get_cached_mutagen_file(self, filename):
+        """Get cached Mutagen file object if still valid, or None.
+
+        The cache is one-time use: it is always cleared after retrieval,
+        even if the mtime check fails. Restores the original tags if they
+        were replaced by _load.
+        """
+        try:
+            cached = getattr(self, '_cached_mutagen_file', None)
+        except RuntimeError:
+            # Can happen if __init__ was never called (e.g., __new__ in tests)
+            return None
+        if cached is None:
+            return None
+        try:
+            current_mtime = os.path.getmtime(filename)
+            cached_mtime = getattr(self, '_cached_mutagen_mtime', None)
+            if cached_mtime is not None and current_mtime == cached_mtime:
+                log.debug("Reusing cached Mutagen file for %r", filename)
+                # Restore original tags in case _load replaced them
+                original_tags = getattr(self, '_cached_mutagen_tags', None)
+                if original_tags is not None:
+                    cached.tags = original_tags
+                return cached
+            else:
+                log.debug("File modified since load, re-parsing: %r", filename)
+                return None
+        except OSError:
+            return None
+        finally:
+            self._cached_mutagen_file = None
+            self._cached_mutagen_tags = None
+            self._cached_mutagen_mtime = None
+
     def _load(self, filename: str) -> Metadata:
         """Load metadata from the file."""
         raise NotImplementedError

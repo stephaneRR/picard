@@ -139,6 +139,7 @@ class APEv2File(File):
         log.debug("Loading file %r", filename)
         self.__casemap = {}
         file = self._File(encode_filename(filename))
+        self._cache_mutagen_file(file, filename)
         metadata = Metadata()
         if file.tags:
             for origname, values in file.tags.items():
