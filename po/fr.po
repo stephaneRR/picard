@@ -8281,7 +8281,7 @@ msgstr "&Rechercher"
 
 #: picard/ui/mainwindow/actions.py:455
 msgid "Lookup selected items in MusicBrainz"
-msgstr "Rechercher les éléments sélectionnés sur MusicBrainz"
+msgstr "Rechercher les éléments sélectionnés"
 
 #: picard/ui/mainwindow/actions.py:460
 msgid "Ctrl+L"
