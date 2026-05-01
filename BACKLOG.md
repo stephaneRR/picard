@@ -71,9 +71,9 @@
 > vue simplifiée qui masque les éléments non essentiels (setVisible(false)) sans détruire la vue experte.
 
 ### Phase 1 — Additive (ajouter nos features)
-- [ ] Toutes les features ci-dessus dans l'UI actuelle
-- [ ] Séparer indicateurs : "requêtes réseau" vs "fichiers en attente de sauvegarde"
-- [ ] Nouveau setting pour la liste de fichiers à envoyer à la corbeille (wildcards)
+- [x] Toutes les features dans l'UI actuelle ✅ — Pages options Discogs, Automation, junk files dans File Naming
+- [x] Séparer indicateurs : "requêtes réseau" vs "fichiers en attente de sauvegarde" ✅ TASK-13
+- [x] Nouveau setting pour la liste de fichiers à envoyer à la corbeille (wildcards) ✅ — Options > File Naming
 
 ### Phase 2 — Vue simplifiée (après usage réel)
 - [ ] Toggle "Mode simple / Mode expert" (menu ou premier lancement)

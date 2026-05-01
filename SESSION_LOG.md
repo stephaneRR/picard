@@ -262,3 +262,41 @@
 - Seuil de matching configurable (spinner 0.0-1.0)
 - UI construite programmatiquement (pas de fichier .ui)
 - 10 tests synthétiques passent
+
+### Page options Automation ✅
+- Nouvelle page Options > Advanced > Automation (picard/ui/options/automation.py)
+- Auto-save albums parfaits (checkbox, off par défaut)
+- Auto-remove albums après save (checkbox, grisé quand auto-save off)
+- Description détaillée du comportement
+
+### Junk files déplacé dans File Naming ✅
+- Settings suppression fichiers indésirables déplacés de Automation vers File Naming (renaming.py)
+- Regroupé avec "Move additional files" et "Delete empty dirs" — même page, même contexte
+- Pattern field grisé quand checkbox off
+
+### Fix status bar jitter ✅
+- Labels de compteurs en bas de l'UI passés en largeur fixe (40px)
+- Empêche le décalage de l'UI quand les chiffres changent (ex: 9→10→100)
+
+### Simplification tooltip recherche ✅
+- "Rechercher les éléments sélectionnés sur MusicBrainz" → "Rechercher les éléments sélectionnés"
+- Plus simple et plus exact (Discogs aussi utilisé derrière)
+
+### Auto-remove albums après save ✅
+- Nouveau setting auto_remove_saved_albums (off par défaut)
+- L'album disparaît de la liste après save réussi (délai 3s + vérification)
+- Si erreur de save : album conservé + message d'erreur 10s dans la barre de statut
+- Si succès + remove : message "Album saved and removed" 5s
+- Messages d'erreur affichés même sans auto-remove activé
+- Tous les messages vont dans l'historique (Help > View Activity History, Ctrl+H)
+
+### Fix Deezer cover provider ✅
+- "Pas de cover trouvée" n'est plus une erreur — changé en log debug
+- Avant : Deezer disait "no results" → album.error_append → icône rouge
+- Après : log silencieux, l'album reste doré si la cover vient d'un autre provider
+- Vraies erreurs API/réseau toujours signalées en rouge
+
+### Tests synthétiques ✅
+- Suite de 15 tests couvrant tous les modules ajoutés/modifiés
+- Exécutables sur Mac sans GUI complète
+- Cache covers, cache metadata, Discogs matcher, providers, formats, traduction, pytest complet
