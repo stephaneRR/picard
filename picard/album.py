@@ -742,6 +742,59 @@ class Album(MetadataItem):
             self.tagger.window.refresh_metadatabox()
             self.tagger.window.cover_art_box.update_metadata()
 
+        # Check if a better version exists in the release group
+        self._check_for_better_version()
+
+    def _check_for_better_version(self):
+        """Check if an alternative version with matching track count exists."""
+        if self.is_complete():
+            return
+
+        num_files = self.get_num_total_files()
+        num_tracks = len(self.tracks)
+
+        if num_files == 0:
+            return
+
+        if num_files == num_tracks:
+            return
+
+        if not self.release_group:
+            return
+
+        log.debug(
+            "Track count mismatch for %r (%d files, %d tracks), checking alternatives",
+            self, num_files, num_tracks,
+        )
+
+        if self.release_group.loaded:
+            self._evaluate_alternative_versions()
+        else:
+            self.release_group.load_versions(self._evaluate_alternative_versions)
+
+    def _evaluate_alternative_versions(self):
+        """Evaluate loaded versions to find a better match."""
+        if not self.release_group or not self.release_group.versions:
+            return
+
+        num_files = self.get_num_total_files()
+
+        for version in self.release_group.versions:
+            if version['totaltracks'] == num_files and version['id'] != self.id:
+                log.info(
+                    "Better version found for %r: %s (%s)",
+                    self, version['id'], version['name'],
+                )
+                self.tagger.window.set_statusbar_message(
+                    N_("Better version found for \"%(album)s\": %(version)s — Right-click the album → Other versions to switch"),
+                    {
+                        'album': self.metadata['album'],
+                        'version': version['name'],
+                    },
+                    timeout=10000,
+                )
+                return
+
     def _finalize_loading(self, error):
         if self.loaded:
             # This is not supposed to happen, _finalize_loading should only
