@@ -120,3 +120,10 @@
 - fanart.tv : API key publique, release group ID, cd art
 - Ordre par défaut : Amazon, Deezer, fanart.tv, CAA, CaaReleaseGroup
 - 4 595 tests passent, 0 échec
+
+### TASK-04 — Cache disque persistant pour cover arts ✅
+- 2 commits : cache module (521 lignes + 14 tests) + fix éviction automatique dans put()
+- QA : 9/9 checks OK, 1 fix appliqué (éviction manquante dans put())
+- Cache dans QStandardPaths.CacheLocation/covers/{mbid}/, thread-safe, TTL par mtime
+- Intégré dans _handle_queued_image (check avant download) et _coverart_downloaded (save après)
+- 4 609 tests passent, 0 échec

@@ -23,9 +23,9 @@
 ## Section 2 — Performance (vérifié par le code)
 
 ### P1 — Impact fort, prioritaires
-- [ ] Cache disque covers par MBID (aucun cache existant — covers en fichiers temp nettoyés au shutdown via DataHash, UI utilise LRUCache(40) en mémoire)
+- [x] Cache disque covers par MBID ✅ TASK-04 — cache.py 287L + 14 tests, TTL + LRU eviction, thread-safe
 - [ ] Recherche enrichie via Discogs → MB (nouveau : search Discogs 60 req/min, batch URL lookup MB jusqu'à 100 URLs en 1 requête, matching par durées des pistes)
-- [ ] Ordre providers cover art : Amazon/Deezer first, CAA en fallback (config ca_providers dans coverart/providers/__init__.py:54-65 — juste changer l'ordre par défaut)
+- [x] Ordre providers cover art : Amazon/Deezer first, CAA en fallback ✅ TASK-03 — intégré dans DEFAULT_CA_PROVIDERS
 - [ ] Augmenter poids nombre de pistes dans le matching (trackcount_score dans metadata.py:153 — actuellement poids 5/46, scoring asymétrique brutal : 0.0 si plus de fichiers que la release)
 - [ ] Auto-vérification versions alternatives si nb pistes ne matche pas (release-group déjà dans le lookup initial, versions loadables via browse)
 

@@ -257,13 +257,13 @@ class MBAPIHelper(APIHelper):
 
     def lookup_urls(self, urls: list[str], handler: ReplyHandler,
                     inc: Iterable[str] | None = None) -> PendingRequest:
-        """Lookup MusicBrainz entities linked to the given URLs.
+        """Lookup MusicBrainz entity linked to a URL.
 
         Uses /ws/2/url?resource=URL to find linked MusicBrainz entities.
-        Supports up to 100 URLs per request via multiple resource parameters.
+        Currently looks up one URL at a time (first URL in the list).
 
         Args:
-            urls: List of URLs to look up (max 100).
+            urls: List of URLs to look up (uses first URL).
             handler: Callback handler for the response.
             inc: Optional list of include parameters (e.g. 'release-rels').
 

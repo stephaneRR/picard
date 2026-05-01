@@ -308,7 +308,7 @@ class Cluster(FileList):
         try Discogs first to get a better match via duration comparison.
         Falls back to standard MusicBrainz search.
         """
-        if self._lookup_task:
+        if self._lookup_task or getattr(self, '_discogs_lookup_active', False):
             return
         config = get_config()
         discogs_enabled = config.setting.get('discogs_enabled', True)
@@ -347,6 +347,7 @@ class Cluster(FileList):
 
     def _lookup_via_discogs(self):
         """Try Discogs first to enrich the lookup, then fall back to MB."""
+        self._discogs_lookup_active = True
         self.tagger.window.set_statusbar_message(
             N_("Searching Discogs for cluster %(album)s…"),
             {'album': self.metadata['album']},
@@ -452,11 +453,13 @@ class Cluster(FileList):
                 return
 
         log.debug("No Discogs candidate above threshold (%.2f), falling back to MB", threshold)
+        self._discogs_lookup_active = False
         self._lookup_via_mb()
 
     def _discogs_url_lookup_finished(self, document, http, error):
         """Handle MusicBrainz URL lookup response for Discogs URL."""
         self._lookup_task = None
+        self._discogs_lookup_active = False
 
         if error or not document:
             log.debug("MB URL lookup failed, falling back to MB search: %s", error)
@@ -464,8 +467,10 @@ class Cluster(FileList):
             return
 
         # Try to extract a release MBID from the URL entity relations
+        # MB /ws/2/url response nests data under a 'url' key
         try:
-            relations = document.get('relations', [])
+            url_entity = document.get('url', document)
+            relations = url_entity.get('relations', [])
             for rel in relations:
                 if rel.get('type') == 'discogs' and 'release' in rel:
                     release_id = rel['release'].get('id')
