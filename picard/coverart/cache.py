@@ -49,7 +49,7 @@ class CoverArtDiskCache:
     @staticmethod
     def _url_hash(url: str) -> str:
         """Return a short hash of the URL for use as filename."""
-        return hashlib.md5(url.encode('utf-8')).hexdigest()[:16]
+        return hashlib.md5(url.encode('utf-8'), usedforsecurity=False).hexdigest()[:16]
 
     @staticmethod
     def _safe_type(image_type: str) -> str:
