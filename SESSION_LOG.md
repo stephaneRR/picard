@@ -300,3 +300,28 @@
 - Suite de 15 tests couvrant tous les modules ajoutés/modifiés
 - Exécutables sur Mac sans GUI complète
 - Cache covers, cache metadata, Discogs matcher, providers, formats, traduction, pytest complet
+
+### Audit sécurité ✅
+- pip-audit : 0 CVE dans les dépendances
+- bandit : 1 seul finding dans notre code (MD5 pour cache filenames → ajouté usedforsecurity=False)
+- 35 findings upstream, tous faux positifs (asserts, try/except/pass, commandes hardcodées)
+
+### Bugs trouvés et corrigés sur le portable Windows
+- Fix KeyError "Preset 1" dans l'éditeur de scripts (config fraîche, preset pas encore injecté)
+- Fix auto-save ne se déclenchait pas : ajouté trigger sur update_metadata_images (covers = dernière pièce)
+- Fix auto-remove après save manuel : chaque fichier notifie l'album après save réussi (_notify_album_save_complete)
+- Debug logging ajouté dans _check_auto_save pour diagnostic des conditions
+
+### OAuth MusicBrainz — investigation
+- Erreur "Invalid state parameter" sur le portable Windows
+- Cause : browser integration (serveur HTTP local) ne fonctionne pas correctement sur le portable
+- Le state token est stocké en mémoire dans OAuthManager.__states, vérifié dans browser/server.py:253
+- Probable conflit de port ou serveur HTTP local qui ne démarre pas
+- Workaround : désactiver Browser Integration dans Options > Advanced > Network → flow OOB (copier-coller code) fonctionne
+- Les credentials OAuth Picard (client_id public) sont réutilisables par un fork, pas liés à un redirect_uri spécifique
+- Le refresh token est persisté → login ne se fait qu'une fois
+
+### Analyse UI réactivité au chargement (non implémenté, noté)
+- _scan_paths_recursive + format_registry.open bloquent le thread UI
+- Recommandation : QTimer par lots de ~50 fichiers (~30 lignes, approche A)
+- Noté dans le backlog pour implémentation future
