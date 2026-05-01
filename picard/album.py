@@ -329,6 +329,10 @@ class Album(MetadataItem):
         if not config.setting['auto_save_perfect_albums']:
             return
         if not self.is_perfect():
+            log.debug("Auto-save check for %r: not perfect (loaded=%s, complete=%s, modified=%s, images=%s, critical_tasks=%s, optional_tasks=%s)",
+                      self, self.loaded, self.is_complete(), self.is_modified(),
+                      bool(self.metadata.images), self.has_critical_tasks(),
+                      self._has_pending_optional_tasks())
             return
         if self._auto_save_scheduled:
             return
@@ -357,6 +361,26 @@ class Album(MetadataItem):
             QtCore.QTimer.singleShot(3000, partial(self._auto_remove_after_save))
         else:
             QtCore.QTimer.singleShot(3000, partial(self._auto_save_check_errors))
+
+    def _check_all_saved(self):
+        """Called by each file after save completes. If all files are saved
+        and auto-remove is enabled, remove the album from the list."""
+        config = get_config()
+        if not config.setting['auto_remove_saved_albums']:
+            return
+        if any(f.state == File.State.PENDING for t in self.tracks for f in t.files):
+            return
+        if any(f.state == File.State.ERROR for t in self.tracks for f in t.files):
+            return
+        if self.is_modified():
+            return
+        log.info("All files saved, removing album: %s", self.metadata.get('album', ''))
+        self.tagger.window.set_statusbar_message(
+            N_("Album saved and removed: %(album)s"),
+            {'album': self.metadata['album']},
+            timeout=5000,
+        )
+        self.tagger.remove_album(self)
 
     def _auto_save_check_errors(self):
         """Check for save errors after auto-save (when auto-remove is off)."""
@@ -1244,6 +1268,7 @@ class Album(MetadataItem):
         if self.update_metadata_images_from_children():
             self.update(update_tracks=False)
             self.metadata_images_changed.emit()
+            self._check_auto_save()
 
     def keep_original_images(self):
         with self.suspend_metadata_images_update:

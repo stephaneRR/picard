@@ -636,6 +636,20 @@ class File(MetadataItem):
         if self.tagger.stopping:
             log.debug("Save of %r completed before stopping Picard", self.filename)
 
+        if error is None and not self.tagger.stopping:
+            self._notify_album_save_complete()
+
+    def _notify_album_save_complete(self):
+        """Notify the parent album that this file was saved successfully."""
+        track = self.parent_item
+        if track is None:
+            return
+        album = getattr(track, 'album', None)
+        if album is None:
+            return
+        if hasattr(album, '_check_all_saved'):
+            album._check_all_saved()
+
     def _save(self, filename: str, metadata: Metadata) -> None:
         """Save the metadata."""
         raise NotImplementedError
