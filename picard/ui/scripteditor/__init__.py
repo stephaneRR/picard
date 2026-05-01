@@ -371,7 +371,11 @@ class ScriptEditorDialog(PicardDialog, SingletonDialog, HasDisplayTitle):
         if not reload:
             self.examples.settings = config.setting
             self.original_script_id = self.selected_script_id
-            self.original_script_title = self.all_scripts()[self.original_script_id]['title']
+            scripts = self.all_scripts()
+            if self.original_script_id in scripts:
+                self.original_script_title = scripts[self.original_script_id]['title']
+            else:
+                self.original_script_title = ''
         if self.is_options_ui():
             selector = self.parent().ui.naming_script_selector
             idx = selector.currentIndex()
