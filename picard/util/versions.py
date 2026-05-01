@@ -53,20 +53,11 @@ _names = {
     'discid-version': "Discid",
     'astrcmp': "astrcmp",
     'ssl-version': "SSL",
-    'pygit2-version': "pygit2",
 }
 
 
 def _load_versions():
     global _versions
-
-    # Get pygit2 version if available
-    try:
-        import pygit2
-
-        pygit2_version = pygit2.__version__
-    except ImportError:
-        pygit2_version = None
 
     _versions = OrderedDict(
         (
@@ -78,7 +69,6 @@ def _load_versions():
             ('discid-version', discid_version),
             ('astrcmp', astrcmp_implementation),
             ('ssl-version', QSslSocket.sslLibraryVersionString()),
-            ('pygit2-version', pygit2_version),
         )
     )
 
