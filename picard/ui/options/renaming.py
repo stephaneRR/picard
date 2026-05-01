@@ -79,6 +79,8 @@ class RenamingOptionsPage(OptionsPage):
         ('move_additional_files', ['move_additional_files']),
         ('move_additional_files_pattern', ['move_additional_files_pattern']),
         ('delete_empty_dirs', ['delete_empty_dirs']),
+        ('delete_junk_files', ['delete_junk_files']),
+        ('delete_junk_files_pattern', ['delete_junk_files_pattern']),
         ('rename_files', ['rename_files']),
         ('selected_file_naming_script_id', ['naming_script_selector']),
     )
@@ -116,6 +118,21 @@ class RenamingOptionsPage(OptionsPage):
         self.script_palette_readonly.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Base, disabled_color)
 
         self.ui.example_filename_sample_files_button.clicked.connect(self.update_example_files)
+
+        # Add junk file cleanup widgets after delete_empty_dirs
+        self.ui.delete_junk_files = QtWidgets.QCheckBox(
+            _("Delete junk files when saving (moved to trash)"))
+        self.ui.delete_junk_files.setObjectName("delete_junk_files")
+        move_files_layout = self.ui.move_files.layout()
+        idx = move_files_layout.indexOf(self.ui.delete_empty_dirs)
+        move_files_layout.insertWidget(idx + 1, self.ui.delete_junk_files)
+        self.ui.delete_junk_files_pattern = QtWidgets.QLineEdit()
+        self.ui.delete_junk_files_pattern.setObjectName("delete_junk_files_pattern")
+        self.ui.delete_junk_files_pattern.setPlaceholderText("*.url *.nfo *.m3u *.txt *.log")
+        move_files_layout.insertWidget(idx + 2, self.ui.delete_junk_files_pattern)
+        self.ui.delete_junk_files.toggled.connect(
+            self.ui.delete_junk_files_pattern.setEnabled)
+        self.ui.delete_junk_files_pattern.setEnabled(False)
 
         self.examples = ScriptEditorExamples(tagger=self.tagger)
         # Script editor dialog object will not be created until it is specifically requested, in order to ensure proper window modality.
@@ -251,6 +268,9 @@ class RenamingOptionsPage(OptionsPage):
         self.ui.move_additional_files.setChecked(config.setting['move_additional_files'])
         self.ui.move_additional_files_pattern.setText(config.setting['move_additional_files_pattern'])
         self.ui.delete_empty_dirs.setChecked(config.setting['delete_empty_dirs'])
+        self.ui.delete_junk_files.setChecked(config.setting['delete_junk_files'])
+        self.ui.delete_junk_files_pattern.setText(config.setting['delete_junk_files_pattern'])
+        self.ui.delete_junk_files_pattern.setEnabled(config.setting['delete_junk_files'])
         self.ui.move_overwrite_existing_files.setChecked(config.setting['move_overwrite_existing_files'])
         self.naming_scripts = config.setting['file_renaming_scripts']
         self.selected_naming_script_id = config.setting['selected_file_naming_script_id']
@@ -287,6 +307,8 @@ class RenamingOptionsPage(OptionsPage):
         config.setting['move_additional_files'] = self.ui.move_additional_files.isChecked()
         config.setting['move_additional_files_pattern'] = self.ui.move_additional_files_pattern.text()
         config.setting['delete_empty_dirs'] = self.ui.delete_empty_dirs.isChecked()
+        config.setting['delete_junk_files'] = self.ui.delete_junk_files.isChecked()
+        config.setting['delete_junk_files_pattern'] = self.ui.delete_junk_files_pattern.text().strip()
         config.setting['move_overwrite_existing_files'] = self.ui.move_overwrite_existing_files.isChecked()
         config.setting['selected_file_naming_script_id'] = self.selected_naming_script_id
 

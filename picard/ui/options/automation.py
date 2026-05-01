@@ -41,8 +41,6 @@ class AutomationOptionsPage(OptionsPage):
 
     OPTIONS = (
         ('auto_save_perfect_albums', ['auto_save_perfect_albums']),
-        ('delete_junk_files', ['delete_junk_files']),
-        ('delete_junk_files_pattern', ['delete_junk_files_pattern']),
     )
 
     def __init__(self, parent=None):
@@ -52,7 +50,6 @@ class AutomationOptionsPage(OptionsPage):
     def _build_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
 
-        # Auto-save section
         save_group = QtWidgets.QGroupBox(_("Auto-save"))
         save_layout = QtWidgets.QVBoxLayout(save_group)
 
@@ -69,60 +66,17 @@ class AutomationOptionsPage(OptionsPage):
         save_layout.addWidget(save_desc)
 
         layout.addWidget(save_group)
-
-        layout.addSpacing(10)
-
-        # Junk files section
-        junk_group = QtWidgets.QGroupBox(_("Junk file cleanup"))
-        junk_layout = QtWidgets.QVBoxLayout(junk_group)
-
-        self.delete_junk_files = QtWidgets.QCheckBox(
-            _("Delete junk files when saving (moved to trash)"))
-        junk_layout.addWidget(self.delete_junk_files)
-
-        pattern_row = QtWidgets.QHBoxLayout()
-        pattern_row.addWidget(QtWidgets.QLabel(_("File patterns:")))
-        self.delete_junk_files_pattern = QtWidgets.QLineEdit()
-        self.delete_junk_files_pattern.setPlaceholderText("*.url *.nfo *.m3u *.txt *.log")
-        pattern_row.addWidget(self.delete_junk_files_pattern)
-        junk_layout.addLayout(pattern_row)
-
-        junk_desc = QtWidgets.QLabel(
-            _("Files matching these patterns will be sent to the trash "
-              "when saving an album. Uses wildcards (e.g. *.nfo *.txt). "
-              "Files loaded in Picard are never deleted."))
-        junk_desc.setWordWrap(True)
-        junk_desc.setStyleSheet("color: gray; font-size: 11px;")
-        junk_layout.addWidget(junk_desc)
-
-        layout.addWidget(junk_group)
-
         layout.addStretch()
-
-        # Wire enable/disable
-        self.delete_junk_files.toggled.connect(
-            self.delete_junk_files_pattern.setEnabled)
-        self.delete_junk_files_pattern.setEnabled(False)
 
     def load(self):
         config = get_config()
         self.auto_save_perfect_albums.setChecked(
             config.setting['auto_save_perfect_albums'])
-        self.delete_junk_files.setChecked(
-            config.setting['delete_junk_files'])
-        self.delete_junk_files_pattern.setText(
-            config.setting['delete_junk_files_pattern'])
-        self.delete_junk_files_pattern.setEnabled(
-            config.setting['delete_junk_files'])
 
     def save(self):
         config = get_config()
         config.setting['auto_save_perfect_albums'] = \
             self.auto_save_perfect_albums.isChecked()
-        config.setting['delete_junk_files'] = \
-            self.delete_junk_files.isChecked()
-        config.setting['delete_junk_files_pattern'] = \
-            self.delete_junk_files_pattern.text().strip()
 
 
 register_options_page(AutomationOptionsPage)
