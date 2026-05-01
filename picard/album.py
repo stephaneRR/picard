@@ -54,7 +54,12 @@ from enum import IntEnum
 import time
 import traceback
 
-from PyQt6 import QtNetwork
+from functools import partial
+
+from PyQt6 import (
+    QtCore,
+    QtNetwork,
+)
 
 from picard import log
 from picard.album_requests import (
@@ -203,6 +208,7 @@ class Album(MetadataItem):
         self.unmatched_files.metadata_images_changed.connect(self.update_metadata_images)
         self.status = AlbumStatus.NONE
         self._album_artists = []
+        self._auto_save_scheduled = False
         self.update_children_metadata_attrs = {'metadata', 'orig_metadata'}
 
     def __repr__(self):
@@ -253,6 +259,7 @@ class Album(MetadataItem):
             log.debug("Completed %s task %s after %.2fs", task_info.type.name, task_id, task_info.elapsed_time())
         else:
             log.warning("Attempted to complete unknown task: %s", task_id)
+        self._check_auto_save()
 
     def cancel_tasks(self):
         """Cancel all pending tasks and abort their network operations."""
@@ -291,6 +298,58 @@ class Album(MetadataItem):
     def get_pending_tasks(self):
         """Get all pending tasks for debugging."""
         return dict(self._pending_tasks)
+
+    def is_perfect(self):
+        """Check if album is in a perfect state ready for auto-save.
+
+        An album is perfect when all tracks have exactly one matched file,
+        there are unsaved tag changes, cover art is loaded, and no tasks
+        are pending (neither critical nor optional).
+        """
+        return (self.loaded
+                and self.is_complete()
+                and self.is_modified()
+                and self.metadata.images
+                and not self.has_critical_tasks()
+                and not self._has_pending_optional_tasks())
+
+    def _has_pending_optional_tasks(self):
+        """Check if there are any pending optional tasks (e.g., cover art downloads)."""
+        return any(
+            task_info.type in (TaskType.OPTIONAL, TaskType.PLUGIN)
+            for task_info in self._pending_tasks.values()
+        )
+
+    def _check_auto_save(self):
+        """Check if auto-save should be triggered for this album."""
+        config = get_config()
+        if not config.setting.get('auto_save_perfect_albums', False):
+            return
+        if not self.is_perfect():
+            return
+        if self._auto_save_scheduled:
+            return
+        self._auto_save_scheduled = True
+        log.debug("Auto-save scheduled for perfect album %r", self)
+        QtCore.QTimer.singleShot(2000, partial(self._auto_save_execute))
+
+    def _auto_save_execute(self):
+        """Execute the auto-save after the delay."""
+        self._auto_save_scheduled = False
+        if not self.is_perfect():
+            # State changed during the delay, abort
+            log.debug("Auto-save cancelled for %r, no longer perfect", self)
+            return
+        log.info("Auto-saving perfect album: %s - %s",
+                 self.metadata.get('albumartist', ''), self.metadata.get('album', ''))
+        self.tagger.window.set_statusbar_message(
+            N_("Auto-saving perfect album: %(album)s"),
+            {'album': self.metadata['album']},
+            timeout=3000,
+        )
+        for track in self.iter_correctly_matched_tracks():
+            for file in track.files:
+                file.save()
 
     def _warn_deprecated_requests(self, operation):
         """Emit deprecation warning for album._requests usage (once per location)."""
@@ -744,6 +803,9 @@ class Album(MetadataItem):
 
         # Check if a better version exists in the release group
         self._check_for_better_version()
+
+        # Check if album is perfect and should be auto-saved
+        self._check_auto_save()
 
     def _check_for_better_version(self):
         """Check if an alternative version with matching track count exists."""

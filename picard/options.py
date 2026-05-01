@@ -171,6 +171,7 @@ BoolOption('setting', 'completeness_ignore_pregap', False, title=N_("Completenes
 BoolOption('setting', 'completeness_ignore_silence', False, title=N_("Completeness ignore: Silent tracks"))
 BoolOption('setting', 'completeness_ignore_videos', False, title=N_("Completeness ignore: Video tracks"))
 BoolOption('setting', 'ignore_hidden_files', False, title=N_("Ignore hidden files"))
+BoolOption('setting', 'auto_save_perfect_albums', False, title=N_("Auto-save perfectly matched albums"))
 TextOption('setting', 'ignore_regex', '', title=N_("Ignore file paths (regular expression)"))
 IntOption('setting', 'ignore_track_duration_difference_under', 2, title=N_("Allowed track difference (seconds)"))
 IntOption(
