@@ -251,7 +251,7 @@ class DeezerCoverArtProvider(CoverArtProvider):
                 try:
                     track = self.release['media'][0]['tracks'][1]['title']
                 except (IndexError, KeyError):
-                    self.error('cannot find a track name to retry a search. No cover found')
+                    self._log_debug('cannot find a track name to retry a search, no cover found')
                     return CoverArtProvider.QueueState.FINISHED
                 else:
                     search_opts = SearchOptions(artist=self._artist(), track=track)
@@ -294,7 +294,7 @@ class DeezerCoverArtProvider(CoverArtProvider):
                 return
             if len(results) == 0:
                 if self._retry_search:
-                    self.error('no results found')
+                    self._log_debug('no results found')
                     return
                 self._retry_search = True
                 self.queue_images()
@@ -316,7 +316,7 @@ class DeezerCoverArtProvider(CoverArtProvider):
                 self.queue_put(CoverArtImage(cover_url))
                 self._log_debug('queued cover using a Deezer search')
                 return
-            self.error('no result matched the criteria')
+            self._log_debug('no result matched the criteria')
         finally:
             self.next_in_queue()
 
