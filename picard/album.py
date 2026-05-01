@@ -355,16 +355,42 @@ class Album(MetadataItem):
         config = get_config()
         if config.setting['auto_remove_saved_albums']:
             QtCore.QTimer.singleShot(3000, partial(self._auto_remove_after_save))
+        else:
+            QtCore.QTimer.singleShot(3000, partial(self._auto_save_check_errors))
+
+    def _auto_save_check_errors(self):
+        """Check for save errors after auto-save (when auto-remove is off)."""
+        if any(f.state == File.State.PENDING for t in self.tracks for f in t.files):
+            QtCore.QTimer.singleShot(2000, partial(self._auto_save_check_errors))
+            return
+        error_files = [f for t in self.tracks for f in t.files if f.state == File.State.ERROR]
+        if error_files:
+            self.tagger.window.set_statusbar_message(
+                N_("Auto-save failed for %(album)s: %(count)d file(s) could not be saved"),
+                {'album': self.metadata['album'], 'count': len(error_files)},
+                timeout=10000,
+            )
 
     def _auto_remove_after_save(self):
         """Remove album from the list after auto-save completes."""
         if any(f.state == File.State.PENDING for t in self.tracks for f in t.files):
             QtCore.QTimer.singleShot(2000, partial(self._auto_remove_after_save))
             return
-        if any(f.state == File.State.ERROR for t in self.tracks for f in t.files):
-            log.warning("Auto-remove skipped for %r: some files had save errors", self)
+        error_files = [f for t in self.tracks for f in t.files if f.state == File.State.ERROR]
+        if error_files:
+            log.warning("Auto-remove skipped for %r: %d file(s) had save errors", self, len(error_files))
+            self.tagger.window.set_statusbar_message(
+                N_("Auto-save failed for %(album)s: %(count)d file(s) could not be saved"),
+                {'album': self.metadata['album'], 'count': len(error_files)},
+                timeout=10000,
+            )
             return
         log.info("Auto-removing saved album: %s", self.metadata.get('album', ''))
+        self.tagger.window.set_statusbar_message(
+            N_("Album saved and removed: %(album)s"),
+            {'album': self.metadata['album']},
+            timeout=5000,
+        )
         self.tagger.remove_album(self)
 
     def _warn_deprecated_requests(self, operation):
