@@ -353,8 +353,12 @@ class Album(MetadataItem):
             {'album': self.metadata['album']},
             timeout=3000,
         )
-        for track in self.iter_correctly_matched_tracks():
-            for file in track.files:
+        files_to_save = [f for t in self.iter_correctly_matched_tracks() for f in t.files]
+        if files_to_save:
+            if hasattr(self.tagger, '_pending_saves_count'):
+                self.tagger._pending_saves_count += len(files_to_save)
+                self.tagger.window.suspend_while_loading_enter()
+            for file in files_to_save:
                 file.save()
         config = get_config()
         if config.setting['auto_remove_saved_albums']:

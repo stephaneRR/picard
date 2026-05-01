@@ -442,6 +442,7 @@ class Tagger(QtWidgets.QApplication):
     def _init_tagger_entities(self):
         """Initialize tagger objects/entities"""
         self._pending_files_count = 0
+        self._pending_saves_count = 0
         self.files = {}
         self.clusters = ClusterList()
         self.albums = {}
@@ -1067,7 +1068,12 @@ class Tagger(QtWidgets.QApplication):
 
     def save(self, objects):
         """Save the specified objects."""
-        for file in iter_files_from_objects(objects, save=True):
+        files = list(iter_files_from_objects(objects, save=True))
+        if not files:
+            return
+        self._pending_saves_count += len(files)
+        self.window.suspend_while_loading_enter()
+        for file in files:
             file.save()
 
     def load_mbid(self, type, mbid):

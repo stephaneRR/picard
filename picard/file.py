@@ -639,6 +639,11 @@ class File(MetadataItem):
         if error is None and not self.tagger.stopping:
             self._notify_album_save_complete()
 
+        if hasattr(self.tagger, '_pending_saves_count') and self.tagger._pending_saves_count > 0:
+            self.tagger._pending_saves_count -= 1
+            if self.tagger._pending_saves_count == 0:
+                self.tagger.window.suspend_while_loading_exit()
+
     def _notify_album_save_complete(self):
         """Notify the parent album that this file was saved successfully."""
         track = self.parent_item
