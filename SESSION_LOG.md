@@ -239,3 +239,26 @@
 - 38 chaînes non-traduites critiques traduites (erreurs fichier, plugins, sessions, setup wizard)
 - 1 fix msgfmt (variable {filename} dans forme plurielle)
 - Statistiques : 913→1060 traduites (+147), 431→323 fuzzy (-108), 372→333 non-traduites (-39)
+
+## 2026-05-01 — Session 2 (suite) : Build portable + audit + options Discogs
+
+### Build portable Windows ✅
+- Workflow GitHub Actions `build-portable.yml` créé (workflow_dispatch, Python 3.13)
+- picard.spec nettoyé : retiré plugin3 CLI (a_plugins/exe_plugins)
+- pyproject.toml : retiré pygit2, picard-plugins CLI entry point
+- Fix : `--ignore=test/plugins3` dans pytest du workflow
+- Fix : `SettingConfigSection.get()` → accès par `[]` (7 occurrences dans 5 fichiers)
+- Build OK, artifact portable .exe uploadé (~59 Mo)
+
+### Audit qualité du code ✅
+- ruff lint sur 352 fichiers Python : 0 bug runtime, 24 erreurs de style corrigées dans nos fichiers
+- pyright sur nos 14 fichiers modifiés : 0 vrai bug (faux positifs PyQt6/attributs dynamiques)
+- ruff + pyright sur tout le codebase par section (3 agents parallèles) : 0 bug runtime
+- Nettoyage résidus : pygit2 dans versions.py, pyobjc-framework-MediaPlayer, 3 dossiers fantômes __pycache__
+
+### Page options Discogs ✅
+- Nouvelle page Options > Advanced > Discogs (picard/ui/options/discogs.py)
+- Checkbox activer/désactiver, champ token, lien cliquable vers discogs.com/settings/developers
+- Seuil de matching configurable (spinner 0.0-1.0)
+- UI construite programmatiquement (pas de fichier .ui)
+- 10 tests synthétiques passent

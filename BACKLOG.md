@@ -63,7 +63,7 @@
 
 ### P1 — Recherche enrichie Discogs
 - [x] Intégré dans le flow de clustering/lookup ✅ TASK-05
-- [ ] Setting : token Discogs avec lien direct vers discogs.com/settings/developers (UI à ajouter)
+- [x] Setting : token Discogs avec lien direct vers discogs.com/settings/developers ✅ — Options > Advanced > Discogs
 - [ ] Tooltip album : "Identifié via Discogs + MusicBrainz" quand Discogs a enrichi le résultat
 
 ## Simplification UI — Approche progressive
