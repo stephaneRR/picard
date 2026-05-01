@@ -340,7 +340,6 @@ class Album(MetadataItem):
         """Execute the auto-save after the delay."""
         self._auto_save_scheduled = False
         if not self.is_perfect():
-            # State changed during the delay, abort
             log.debug("Auto-save cancelled for %r, no longer perfect", self)
             return
         log.info("Auto-saving perfect album: %s - %s",
@@ -353,6 +352,20 @@ class Album(MetadataItem):
         for track in self.iter_correctly_matched_tracks():
             for file in track.files:
                 file.save()
+        config = get_config()
+        if config.setting['auto_remove_saved_albums']:
+            QtCore.QTimer.singleShot(3000, partial(self._auto_remove_after_save))
+
+    def _auto_remove_after_save(self):
+        """Remove album from the list after auto-save completes."""
+        if any(f.state == File.State.PENDING for t in self.tracks for f in t.files):
+            QtCore.QTimer.singleShot(2000, partial(self._auto_remove_after_save))
+            return
+        if any(f.state == File.State.ERROR for t in self.tracks for f in t.files):
+            log.warning("Auto-remove skipped for %r: some files had save errors", self)
+            return
+        log.info("Auto-removing saved album: %s", self.metadata.get('album', ''))
+        self.tagger.remove_album(self)
 
     def _warn_deprecated_requests(self, operation):
         """Emit deprecation warning for album._requests usage (once per location)."""

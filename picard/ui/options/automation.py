@@ -41,6 +41,7 @@ class AutomationOptionsPage(OptionsPage):
 
     OPTIONS = (
         ('auto_save_perfect_albums', ['auto_save_perfect_albums']),
+        ('auto_remove_saved_albums', ['auto_remove_saved_albums']),
     )
 
     def __init__(self, parent=None):
@@ -57,10 +58,16 @@ class AutomationOptionsPage(OptionsPage):
             _("Automatically save albums when all tracks are matched and cover art is loaded"))
         save_layout.addWidget(self.auto_save_perfect_albums)
 
+        self.auto_remove_saved_albums = QtWidgets.QCheckBox(
+            _("Remove albums from the list after auto-save completes"))
+        save_layout.addWidget(self.auto_remove_saved_albums)
+
         save_desc = QtWidgets.QLabel(
-            _("When enabled, albums with a gold+star icon will be saved "
-              "automatically after a 2-second delay. Files are tagged, "
-              "renamed, and moved according to your file naming settings."))
+            _("When auto-save is enabled, albums with a gold+star icon will be "
+              "saved automatically after a 2-second delay. Files are tagged, "
+              "renamed, and moved according to your file naming settings. "
+              "If removal is enabled, the album disappears from the list once "
+              "all files are saved successfully."))
         save_desc.setWordWrap(True)
         save_desc.setStyleSheet("color: gray; font-size: 11px;")
         save_layout.addWidget(save_desc)
@@ -68,15 +75,25 @@ class AutomationOptionsPage(OptionsPage):
         layout.addWidget(save_group)
         layout.addStretch()
 
+        self.auto_save_perfect_albums.toggled.connect(
+            self.auto_remove_saved_albums.setEnabled)
+        self.auto_remove_saved_albums.setEnabled(False)
+
     def load(self):
         config = get_config()
         self.auto_save_perfect_albums.setChecked(
+            config.setting['auto_save_perfect_albums'])
+        self.auto_remove_saved_albums.setChecked(
+            config.setting['auto_remove_saved_albums'])
+        self.auto_remove_saved_albums.setEnabled(
             config.setting['auto_save_perfect_albums'])
 
     def save(self):
         config = get_config()
         config.setting['auto_save_perfect_albums'] = \
             self.auto_save_perfect_albums.isChecked()
+        config.setting['auto_remove_saved_albums'] = \
+            self.auto_remove_saved_albums.isChecked()
 
 
 register_options_page(AutomationOptionsPage)
