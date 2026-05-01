@@ -55,7 +55,7 @@ class DiscogsAPIHelper(APIHelper):
     def _get_token(self) -> str:
         """Get the Discogs API token from configuration."""
         config = get_config()
-        return config.setting.get('discogs_token', '')
+        return config.setting['discogs_token']
 
     def _make_headers(self) -> dict[str, str]:
         """Build request headers with User-Agent and optional auth token."""

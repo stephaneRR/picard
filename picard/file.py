@@ -803,9 +803,9 @@ class File(MetadataItem):
 
     def _delete_junk_files(self, dirname, config):
         """Delete junk files matching the configured pattern by sending to trash."""
-        if not config.setting.get('delete_junk_files', False):
+        if not config.setting['delete_junk_files']:
             return
-        pattern_string = config.setting.get('delete_junk_files_pattern', '')
+        pattern_string = config.setting['delete_junk_files_pattern']
         if not pattern_string:
             return
         patterns = self._compile_move_additional_files_pattern(pattern_string)

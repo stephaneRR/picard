@@ -327,7 +327,7 @@ class Album(MetadataItem):
     def _check_auto_save(self):
         """Check if auto-save should be triggered for this album."""
         config = get_config()
-        if not config.setting.get('auto_save_perfect_albums', False):
+        if not config.setting['auto_save_perfect_albums']:
             return
         if not self.is_perfect():
             return

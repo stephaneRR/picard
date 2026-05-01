@@ -311,8 +311,8 @@ class Cluster(FileList):
         if self._lookup_task or getattr(self, '_discogs_lookup_active', False):
             return
         config = get_config()
-        discogs_enabled = config.setting.get('discogs_enabled', True)
-        discogs_token = config.setting.get('discogs_token', '')
+        discogs_enabled = config.setting['discogs_enabled']
+        discogs_token = config.setting['discogs_token']
 
         if discogs_enabled and discogs_token:
             self._lookup_via_discogs()
@@ -429,7 +429,7 @@ class Cluster(FileList):
             return
 
         config = get_config()
-        threshold = config.setting.get('discogs_match_threshold', 0.7)
+        threshold = config.setting['discogs_match_threshold']
 
         best = find_best_candidate(files_info, self._discogs_candidates)
         if best:
