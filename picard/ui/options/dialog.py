@@ -76,6 +76,7 @@ from picard.ui.options import (  # noqa: F401 # pylint: disable=unused-import
     cdlookup,
     cover,
     cover_processing,
+    discogs,
     fingerprinting,
     general,
     genres,
