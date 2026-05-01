@@ -25,7 +25,6 @@ from picard import log
 from picard.config import get_config
 from picard.webservice import (
     PendingRequest,
-    ReplyHandler,
     WebService,
     ratecontrol,
 )

@@ -23,29 +23,21 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 
+from collections.abc import Mapping
 import enum
 import json
-from functools import partial
 from typing import (
     Any,
-    Mapping,
-    Optional,
-    Union,
 )
 from urllib.parse import urlsplit
 
-from PyQt6.QtNetwork import QNetworkReply
-
 from picard import log
 from picard.config import (
-    FloatOption,
-    TextOption,
     get_config,
 )
 from picard.coverart.image import CoverArtImage
 from picard.coverart.providers.provider import (
     CoverArtProvider,
-    ProviderOptions,
 )
 from picard.i18n import N_
 from picard.util.astrcmp import astrcmp
@@ -103,7 +95,7 @@ class Track(APIObject):
 _available_objects = {c.__name__.lower(): c for c in APIObject.__subclasses__()}
 
 
-def _dict_to_object(data: Mapping[str, Any]) -> Optional[APIObject]:
+def _dict_to_object(data: Mapping[str, Any]) -> APIObject | None:
     try:
         obj_type = data['type']
         obj_class = _available_objects[obj_type]
@@ -113,7 +105,7 @@ def _dict_to_object(data: Mapping[str, Any]) -> Optional[APIObject]:
         return obj_class(**data)
 
 
-def parse_json(data: Union[str, Mapping[str, Any]]) -> Optional[APIObject]:
+def parse_json(data: str | Mapping[str, Any]) -> APIObject | None:
     if isinstance(data, str):
         return json.loads(data, object_hook=_dict_to_object)
 
@@ -253,7 +245,6 @@ class DeezerCoverArtProvider(CoverArtProvider):
     def queue_images(self):
         self.match_url_relations(['free streaming'], self._url_callback)
         if not self._has_url_relation:
-            config = get_config()
             if not self._retry_search:
                 search_opts = SearchOptions(artist=self._artist(), album=self.metadata['album'])
             else:
@@ -279,7 +270,7 @@ class DeezerCoverArtProvider(CoverArtProvider):
             self._has_url_relation = True
             self.client.obj_from_url(url, self._queue_from_url)
 
-    def _queue_from_url(self, album: Optional[APIObject], error):
+    def _queue_from_url(self, album: APIObject | None, error):
         self.album._requests -= 1
         try:
             if error:

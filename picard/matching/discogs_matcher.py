@@ -19,8 +19,8 @@
 
 """Matching logic for comparing file metadata against Discogs releases."""
 
-import re
 from difflib import SequenceMatcher
+import re
 
 
 def parse_duration(duration_str: str) -> int:

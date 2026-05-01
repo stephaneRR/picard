@@ -51,10 +51,9 @@ from collections.abc import (
     Iterable,
 )
 from enum import IntEnum
+from functools import partial
 import time
 import traceback
-
-from functools import partial
 
 from PyQt6 import (
     QtCore,
@@ -69,10 +68,6 @@ from picard.album_requests import (
 from picard.cluster import Cluster
 from picard.collection import add_release_to_user_collections
 from picard.config import get_config
-from picard.webservice.cache import (
-    _CACHE_HIT_SENTINEL,
-    get_metadata_cache,
-)
 from picard.const import VARIOUS_ARTISTS_ID
 from picard.file import File
 from picard.i18n import (
@@ -106,6 +101,10 @@ from picard.util import (
 )
 from picard.util.textencoding import asciipunct
 from picard.webservice import PendingRequest
+from picard.webservice.cache import (
+    _CACHE_HIT_SENTINEL,
+    get_metadata_cache,
+)
 
 
 RECORDING_QUERY_LIMIT = 100

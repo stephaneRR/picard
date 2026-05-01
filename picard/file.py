@@ -58,6 +58,7 @@ import re
 import shutil
 import time
 
+
 try:
     from send2trash import send2trash
 except ImportError:

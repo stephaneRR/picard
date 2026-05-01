@@ -25,6 +25,7 @@ import os
 import os.path
 import shutil
 
+
 try:
     from send2trash import send2trash
 except ImportError:

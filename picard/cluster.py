@@ -41,12 +41,11 @@ from collections import (
     defaultdict,
 )
 from collections.abc import Iterable
+from functools import partial
 from operator import attrgetter
 import re
 from typing import TYPE_CHECKING
 import weakref
-
-from functools import partial
 
 from picard import log
 from picard.config import get_config
@@ -377,7 +376,6 @@ class Cluster(FileList):
             return
 
         # Filter candidates by track count if possible
-        num_files = len(self.files)
         filtered = []
         for result in results:
             # Discogs search results don't include track count,

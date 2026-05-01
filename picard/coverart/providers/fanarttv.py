@@ -31,13 +31,11 @@ from PyQt6.QtNetwork import QNetworkReply
 
 from picard import log
 from picard.config import (
-    TextOption,
     get_config,
 )
 from picard.coverart.image import CoverArtImage
 from picard.coverart.providers.provider import (
     CoverArtProvider,
-    ProviderOptions,
 )
 from picard.i18n import N_
 
