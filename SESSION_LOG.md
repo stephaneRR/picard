@@ -182,3 +182,60 @@
 - refresh=True bypass le cache, erreurs jamais cachées
 - Settings metadata_cache_enabled=True, metadata_cache_ttl_days=7
 - 4 697 tests passent, 0 échec
+
+### TASK-12 — Garder objet Mutagen du 1er parsing ✅
+- 2 commits : cache Mutagen dans tous les formats (210L + 7 tests) + fix memory leak NonCompatID3
+- QA passé, cas subtils gérés : mutation tags VComment, incompatibilité ID3 v2.3, APEv2 save différent
+- Formats avec réutilisation au save : FLAC, OGG, Opus, MP4, ASF (~200ms économisés/FLAC)
+- Formats sans réutilisation (cache nettoyé) : MP3, DSF, AIFF, WAV (ID3 v2.3 incompatible), APEv2
+- Sécurité mtime : re-parse si fichier modifié depuis le load
+- Cache one-time-use, nettoyé dans finally block
+- 4 704 tests passent, 0 échec
+
+### TASK-13 — Séparer indicateurs de progression UI ✅
+- 1 commit : 19 lignes modifiées dans infostatus.py
+- Les indicateurs étaient déjà séparés (set_pending_files / set_pending_requests)
+- Ajouté : séparateur visuel, icônes toggle (grisé quand 0), tooltips descriptifs
+- Taskbar progress reste combiné (comportement correct pour l'OS)
+- 4 704 tests passent, 0 échec
+
+### TASK-14 — Bug "Dylan:" investigation ✅ (résolu sans code)
+- Cause trouvée : plugin **Classical Extras** ligne 1955 de __init__.py
+- Code exact : `tm['album'] = "; ".join(new_last_names) + ": " + tm['album']`
+- Le plugin préfixe le titre album avec noms de famille des compositeurs (sort-name tronqué)
+- "Dylan, Bob" → "Dylan" → "Dylan: Dylan & the Dead"
+- Activé par option `cea_composer_album` + relations composer dans MB
+- Affecte les pistes individuellement (track metadata processor), pas l'album
+- Notre fork n'inclut pas Classical Extras → bug absent
+
+### TASK-15 — Langue sous Windows investigation ✅ (pas de bug)
+- L'option de langue est dans Options > User Interface (pas General)
+- Redémarrage requis après changement (warning affiché)
+- Pas de bug Windows dans le code i18n
+- Cause probable : mauvais onglet d'options ou fichiers .mo manquants
+- Pour notre fork : compiler les .mo avec `python setup.py build_locales`
+
+## 2026-05-01 — Session 2 (suite) : Review traduction française
+
+### Review complète fr.po ✅
+- Fichier : po/fr.po (14 815 lignes, 389 Ko)
+- Review parallélisée en 4 agents (sections de ~3 700 lignes chacune)
+- Corrections appliquées par 6 agents (2 critiques/grammaire + 4 fuzzy/traductions)
+- QA validé : msgfmt --check OK, 0 erreur
+
+### Phase 1 — Corrections critiques + grammaire (37 corrections)
+- "Faites ainsi !" → "Exécution !" (Star Trek TNG VF) — 2 endroits
+- Accent vietnamien "Ế" → "Ê" — 2 endroits
+- "Don't Save" traduit "Enregistrer" (sens opposé !) → "Ne pas enregistrer"
+- Raccourci clavier Ctrl+Shift+S → Ctrl+Shift+I (mauvaise correspondance)
+- "Personnage" → "Caractère" (contexte remplacement de caractères)
+- Caractère parasite supprimé (erreur HTTP)
+- "Courriel" (fr-CA) → "E-mail" (fr-FR) — 3 endroits
+- "a échouée" → "a échoué" (×6), "Peut être utiliser" → "utilisé" (×7)
+- + 15 typos/fautes d'orthographe corrigées
+
+### Phase 2 — Fuzzy absurdes + chaînes non-traduites (~153 corrections)
+- 113 entrées fuzzy avec traductions complètement fausses corrigées et dé-fuzzifiées
+- 38 chaînes non-traduites critiques traduites (erreurs fichier, plugins, sessions, setup wizard)
+- 1 fix msgfmt (variable {filename} dans forme plurielle)
+- Statistiques : 913→1060 traduites (+147), 431→323 fuzzy (-108), 372→333 non-traduites (-39)

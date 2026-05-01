@@ -32,12 +32,12 @@
 ### P2 — Impact moyen, bons gains
 - [x] Cache persistant metadata MB ✅ TASK-10 — JSON par MBID, TTL 7j, 9 tests
 - [ ] Pré-chargement versions release-group dès le lookup initial (au lieu d'attendre le clic droit — basetreeview.py:160-174)
-- [ ] Garder l'objet Mutagen du parsing initial pour la sauvegarde (évite double parsing — gain ~200ms/FLAC, ~50ms/MP3 — stocker en attribut de File, vérifier mtime avant réutilisation)
+- [x] Garder objet Mutagen du parsing initial ✅ TASK-12 — gain ~200ms/FLAC, mtime check, 7 tests
 - [ ] Ne pas ré-embedder la cover si identique au save précédent
 
 ### P3 — Gains complémentaires
 - [ ] Configurer délais rate limiting plus bas pour sources non-MB (mécanisme déjà par host dans ratecontrol.py:82 — juste configuration)
-- [ ] Séparer visuellement dans l'UI "requêtes réseau en cours" vs "fichiers en attente de sauvegarde" (statusindicator additionne pending_files + pending_requests)
+- [x] Séparer visuellement dans l'UI réseau vs sauvegarde ✅ TASK-13 — séparateur, tooltips, icônes toggle
 
 ### Non retenu
 - ~~Écriture fichiers parallèle~~ : save_thread_pool volontairement limité à 1 thread (tagger.py:322-324) pour éviter race conditions sur renommage/déplacement
@@ -45,8 +45,8 @@
 - ~~Batch API MusicBrainz~~ : impossible, API ne supporte que 1 entité par requête (sauf URL lookup)
 
 ## Section 2 — Bugs identifiés
-- [ ] Bug "Dylan:" — sort-name tronqué préfixé au titre album sur releases multi-artistes (docs/picard_bug_report.docx, cause probable dans translate_from_sortname picard/util/__init__.py + _translate_artist_node mbjson.py:543)
-- [ ] Investiguer changement de langue sous Windows (i18n.py, GetUserDefaultUILanguage)
+- [x] Bug "Dylan:" ✅ TASK-14 — Cause : plugin Classical Extras ligne 1955 (cea_composer_album). Absent de notre fork.
+- [x] Langue Windows ✅ TASK-15 — Pas de bug, option dans User Interface, compiler .mo pour le build
 
 ## Section 3 — Nouvelles fonctionnalités (vérifié par le code)
 
