@@ -83,7 +83,6 @@ if build_portable:
     runtime_hooks.append('scripts/pyinstaller/portable-hook.py')
 
 hiddenimports = [
-    'cffi',  # Needed for pygit2
     'dataclasses',  # Provide dataclasses support for plugins
 ]
 
@@ -148,44 +147,11 @@ else:
         entitlements_file='./scripts/package/entitlements.plist',
     )
 
-    # The picard-plugins CLI tool
-    a_plugins = Analysis(
-        ['picard/plugin3/cli.py'],
-        pathex=['picard'],
-        binaries=[],
-        datas=[],
-        hiddenimports=['cffi'],
-        hookspath=None,
-        runtime_hooks=[],
-        excludes=excludes,
-    )
-    pyz_plugins = PYZ(a_plugins.pure, a_plugins.zipped_data)
-    exe_plugins = EXE(
-        pyz_plugins,
-        a_plugins.scripts,
-        exclude_binaries=True,
-        target_arch=os.environ.get('TARGET_ARCH', None),
-        name='picard-plugins',
-        debug=False,
-        strip=False,
-        upx=False,
-        icon='picard.ico',
-        version='win-version-info.txt',
-        console=False if os_name == 'Darwin' else True,
-        # macOS code signing
-        codesign_identity=os.environ.get('CODESIGN_IDENTITY', None),
-        entitlements_file='./scripts/package/entitlements.plist',
-    )
-
     coll = COLLECT(
         exe,
         a.binaries,
         a.zipfiles,
         a.datas,
-        exe_plugins,
-        a_plugins.binaries,
-        a_plugins.zipfiles,
-        a_plugins.datas,
         strip=False,
         upx=False,
         name='picard',

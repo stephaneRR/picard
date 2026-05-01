@@ -43,8 +43,6 @@ dependencies = [
     "PyYAML>=5.1, <7",
     "charset-normalizer~=3.3",
     "Send2Trash>=1.8.0",
-    "pygit2>=1.18.2, <1.19; python_version < '3.11'",
-    "pygit2~=1.19; python_version >= '3.11'",
     "tomli>=2.3.0; python_version < '3.11'",
 ]
 
@@ -57,7 +55,6 @@ Changelog = "https://picard.musicbrainz.org/changelog/"
 Funding = "https://metabrainz.org/donate"
 
 [project.scripts]
-picard-plugins = "picard.plugin3.cli:main"
 
 [project.optional-dependencies]
 plugins = [
