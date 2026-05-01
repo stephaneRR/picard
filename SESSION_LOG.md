@@ -127,3 +127,48 @@
 - Cache dans QStandardPaths.CacheLocation/covers/{mbid}/, thread-safe, TTL par mtime
 - Intégré dans _handle_queued_image (check avant download) et _coverart_downloaded (save après)
 - 4 609 tests passent, 0 échec
+
+### TASK-05 — Recherche enrichie via Discogs ✅
+- 2 commits : implémentation (975 lignes, 39 tests) + fix QA (3 issues corrigées)
+- QA : 10 checks, 1 bug critique corrigé (parsing réponse MB URL — données nestées sous 'url')
+- Fix : guard _discogs_lookup_active contre lookups concurrents, docstring lookup_urls
+- Flow : Discogs search → top 3 → fetch tracklist → matching durées → MB URL lookup → load album
+- Nouveau package picard/matching/ avec discogs_matcher.py
+- Nouveau picard/webservice/api_helpers/discogs.py
+- Settings : discogs_enabled, discogs_token, discogs_match_threshold
+- 4 648 tests passent, 0 échec
+
+### TASK-06 — Augmenter poids totalalbumtracks de 5 à 10 ✅
+- 1 commit : 1 ligne changée dans cluster.py
+- Benchmark sur 1000 cas (60% easy, 25% medium, 15% hard) : first match 92.5% → 94.2%
+- +28 améliorations (100% exact edition match), -11 régressions (100% albums incomplets, fixables par TASK-05/07)
+- 0 régression non-fixable
+- 4 648 tests passent, 0 échec
+
+### TASK-07 — Auto-vérification versions alternatives ✅
+- 1 commit : 53 lignes ajoutées dans album.py, 11 tests
+- QA passé : 7/7 checks OK, 0 issue, code purement additif
+- Après _finalize_loading_album, si nb fichiers != nb pistes → charge les versions du release-group
+- Cherche version avec totaltracks == nb fichiers, notifie via statusbar (pas d'auto-switch)
+- 4 659 tests passent, 0 échec
+
+### TASK-08 — Auto-save des albums parfaits ✅
+- 1 commit : 64 lignes album.py + 262 lignes tests (20 tests)
+- QA passé : 8/8 checks OK, 0 issue, edge cases couverts
+- is_perfect() = loaded + is_complete + is_modified + images + no tasks
+- Délai 2s via QTimer, re-check avant save, pas de double-scheduling
+- Appelé depuis _finalize_loading_album() et complete_task()
+- Utilise file.save() = pipeline complet (tags + rename + move + cleanup)
+- Setting auto_save_perfect_albums = False par défaut
+- 4 679 tests passent, 0 échec
+
+### TASK-09 — Suppression fichiers indésirables → corbeille ✅
+- 1 commit : _delete_junk_files dans file.py + emptydir.py send2trash + 9 tests
+- QA passé : 8/8 checks OK
+- Pattern configurable (*.url *.nfo *.m3u *.txt *.log par défaut), même syntaxe fnmatch
+- send2trash pour corbeille, fallback os.remove si indisponible
+- emptydir.py : shutil.rmtree remplacé par send2trash
+- Appelé dans _save_and_rename après move_additional_files, avant delete_empty_dirs
+- Protection : fichiers chargés dans Picard jamais supprimés
+- Setting delete_junk_files = False par défaut (opt-in)
+- 4 688 tests passent, 0 échec

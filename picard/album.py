@@ -548,11 +548,12 @@ class Album(MetadataItem):
             else:
                 try:
                     parse_result = self._parse_release(document)
-                    # Save to metadata cache on successful parse
+                    # Save to metadata cache on successful parse (skip if loaded from cache)
                     if parse_result in (ParseResult.PARSED, ParseResult.MISSING_TRACK_RELS):
-                        cache = get_metadata_cache()
-                        if cache and document:
-                            cache.put(self.id, document)
+                        if self._load_request is not _CACHE_HIT_SENTINEL:
+                            cache = get_metadata_cache()
+                            if cache and document:
+                                cache.put(self.id, document)
                     config = get_config()
                     if parse_result == ParseResult.MISSING_TRACK_RELS:
                         log.debug(

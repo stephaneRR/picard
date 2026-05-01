@@ -24,10 +24,10 @@
 
 ### P1 — Impact fort, prioritaires
 - [x] Cache disque covers par MBID ✅ TASK-04 — cache.py 287L + 14 tests, TTL + LRU eviction, thread-safe
-- [ ] Recherche enrichie via Discogs → MB (nouveau : search Discogs 60 req/min, batch URL lookup MB jusqu'à 100 URLs en 1 requête, matching par durées des pistes)
+- [x] Recherche enrichie via Discogs → MB ✅ TASK-05 — 975L + 39 tests, matching durées, flow Discogs→MB URL lookup
 - [x] Ordre providers cover art : Amazon/Deezer first, CAA en fallback ✅ TASK-03 — intégré dans DEFAULT_CA_PROVIDERS
-- [ ] Augmenter poids nombre de pistes dans le matching (trackcount_score dans metadata.py:153 — actuellement poids 5/46, scoring asymétrique brutal : 0.0 si plus de fichiers que la release)
-- [ ] Auto-vérification versions alternatives si nb pistes ne matche pas (release-group déjà dans le lookup initial, versions loadables via browse)
+- [x] Augmenter poids nombre de pistes dans le matching ✅ TASK-06 — poids 5→10, benchmarké sur 1000 cas, +28 améliorations, 0 régression non-fixable
+- [x] Auto-vérification versions alternatives si nb pistes ne matche pas ✅ TASK-07 — notification statusbar, 11 tests
 
 ### P2 — Impact moyen, bons gains
 - [ ] Cache persistant metadata MB avec bouton "Vider le cache" (base existante dans _mb_cache de session_loader.py:577)
@@ -51,28 +51,19 @@
 ## Section 3 — Nouvelles fonctionnalités (vérifié par le code)
 
 ### P1 — Auto-save albums parfaits
-- [ ] Ajouter `is_perfect()` sur Album : `is_complete()` + `is_modified()` + `metadata.images` non vide + pas de tâches critiques
-- [ ] Ajouter signal Qt pour la transition vers l'état parfait (pas de signal existant — AlbumItem.update() met à jour l'icône mais n'émet rien)
-- [ ] Setting on/off "Auto-save albums when perfectly matched" (désactivé par défaut)
-- [ ] Icône existante : `icon_cd_saved_modified` = CD doré (#EBBA16) + étoile pourpre (#800080) — c'est l'état `is_complete() + is_modified()`
+- [x] is_perfect() + _check_auto_save + _auto_save_execute ✅ TASK-08 — 20 tests, délai 2s, setting off par défaut
 
 ### P1 — Meilleure version automatique
-- [ ] Après `_finalize_loading_album`, si `get_num_total_files() != len(tracks)` → charger versions automatiquement via `release_group.load_versions()`
-- [ ] Chercher la version avec `totaltracks == get_num_total_files()` dans `_alternative_versions`
-- [ ] Bouton/notification direct "Version avec X pistes trouvée — Appliquer ?" (pas de clic droit)
+- [x] Auto-vérification versions + notification statusbar ✅ TASK-07 — 11 tests
 - [ ] `switch_release_version(mbid)` existe (album.py:1048) — déplace les fichiers et recharge
 - [ ] Ne PAS charger les versions si album déjà parfait (économie de requête)
 
 ### P1 — Suppression fichiers indésirables
-- [ ] Nouveau setting `delete_junk_files_pattern` avec wildcards (même mécanisme fnmatch que `move_additional_files_pattern`)
-- [ ] Envoi à la corbeille via `send2trash` (nouvelle dépendance) au lieu de suppression définitive
-- [ ] Remplacer `shutil.rmtree` dans `emptydir.rm_empty_dir()` par `send2trash` aussi (actuellement suppression définitive)
-- [ ] Fusionner `JUNK_FILES` (liste en dur : .DS_Store, desktop.ini, Thumbs.db) avec le pattern configurable
-- [ ] Appelé dans `_save_and_rename` après déplacement fichiers additionnels, avant `delete_empty_dirs`
+- [x] Suppression fichiers indésirables → corbeille ✅ TASK-09 — send2trash, pattern configurable, 9 tests
 
 ### P1 — Recherche enrichie Discogs
-- [ ] Transparent pour l'utilisateur — intégré dans le flow de clustering/lookup
-- [ ] Setting : token Discogs avec lien direct vers discogs.com/settings/developers
+- [x] Intégré dans le flow de clustering/lookup ✅ TASK-05
+- [ ] Setting : token Discogs avec lien direct vers discogs.com/settings/developers (UI à ajouter)
 - [ ] Tooltip album : "Identifié via Discogs + MusicBrainz" quand Discogs a enrichi le résultat
 
 ## Simplification UI — Approche progressive
