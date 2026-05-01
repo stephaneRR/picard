@@ -321,7 +321,23 @@
 - Les credentials OAuth Picard (client_id public) sont réutilisables par un fork, pas liés à un redirect_uri spécifique
 - Le refresh token est persisté → login ne se fait qu'une fois
 
+### Icône gold+star conditionnée aux images ✅
+- L'icône gold+star (album parfait) ne s'affiche plus tant que les covers ne sont pas chargées
+- Aligné avec is_perfect() utilisé par l'auto-save : gold+star = prêt à auto-saver
+- Albums en attente de cover : icône standard avec tooltip "waiting for cover art"
+
+### Rate limiting Amazon CDN ✅
+- Amazon images CDN (ec1/ec2.images-amazon.com) baissé de 1000ms à 200ms (5 req/s)
+- Pas de rate limit documenté sur les images statiques CDN Amazon
+- Les autres sources restent à 1 req/s par prudence (pas de limites officielles publiées)
+
 ### Analyse UI réactivité au chargement (non implémenté, noté)
 - _scan_paths_recursive + format_registry.open bloquent le thread UI
 - Recommandation : QTimer par lots de ~50 fichiers (~30 lignes, approche A)
 - Noté dans le backlog pour implémentation future
+
+### Vérifications dossiers vides / fichiers junk
+- JUNK_FILES (.DS_Store, Thumbs.db, desktop.ini) codé en dur dans emptydir.py — ignorés pour considérer un dossier comme vide
+- delete_junk_files_pattern (*.url *.nfo etc.) — configurable dans Options > File Naming
+- Les deux systèmes sont complémentaires et fonctionnent correctement
+- Chaîne de sauvegarde vérifiée : move additional → delete junk → delete empty dirs → l'auto-remove ne se lance qu'après succès complet
