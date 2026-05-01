@@ -36,8 +36,9 @@
 - [ ] Ne pas ré-embedder la cover si identique au save précédent
 
 ### P3 — Gains complémentaires
-- [ ] Configurer délais rate limiting plus bas pour sources non-MB (mécanisme déjà par host dans ratecontrol.py:82 — juste configuration)
+- [x] Configurer délais rate limiting : Amazon CDN baissé à 200ms (5 req/s) ✅ — les autres sources restent à 1 req/s (pas de limite officielle publiée, prudence)
 - [x] Séparer visuellement dans l'UI réseau vs sauvegarde ✅ TASK-13 — séparateur, tooltips, icônes toggle
+- [ ] UI réactive au chargement — `_scan_paths_recursive` + `format_registry.open()` bloquent le thread UI. Fix recommandé : QTimer par lots de ~50 fichiers (~30 lignes, approche A). Voir analyse session 2.
 
 ### Non retenu
 - ~~Écriture fichiers parallèle~~ : save_thread_pool volontairement limité à 1 thread (tagger.py:322-324) pour éviter race conditions sur renommage/déplacement
