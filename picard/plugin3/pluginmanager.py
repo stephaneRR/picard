@@ -66,8 +66,10 @@ class PluginManager(QObject):
         self._plugins_dir = None
         self._enabled_plugins = set()
         self._init_failed_plugins = []
+        config = get_config()
+        cache_dir = config.setting['plugin_registry_cache_dir'] if 'plugin_registry_cache_dir' in config.setting else None
         self._registry = PluginRegistry(
-            cache_dir=get_config().setting.get('plugin_registry_cache_dir')
+            cache_dir=cache_dir
         )
 
     @property
@@ -118,7 +120,7 @@ class PluginManager(QObject):
             list: List of (name, reason) tuples for blacklisted plugins
         """
         config = get_config()
-        enabled_plugins = config.setting.get('plugins3_enabled_plugins', [])
+        enabled_plugins = config.setting['plugins3_enabled_plugins']
         blacklisted = []
 
         for plugin in self._plugins:
@@ -161,7 +163,7 @@ class PluginManager(QObject):
                 plugin.enable(self._tagger)
             self._enabled_plugins.add(plugin.uuid)
 
-            enabled = list(config.setting.get('plugins3_enabled_plugins', []))
+            enabled = list(config.setting['plugins3_enabled_plugins'] if 'plugins3_enabled_plugins' in config.setting else [])
             if plugin.uuid not in enabled:
                 enabled.append(plugin.uuid)
                 config.setting['plugins3_enabled_plugins'] = enabled
@@ -185,7 +187,7 @@ class PluginManager(QObject):
             self._enabled_plugins.discard(plugin.uuid)
 
             # Update config
-            enabled = list(config.setting.get('plugins3_enabled_plugins', []))
+            enabled = list(config.setting['plugins3_enabled_plugins'] if 'plugins3_enabled_plugins' in config.setting else [])
             if plugin.uuid in enabled:
                 enabled.remove(plugin.uuid)
                 config.setting['plugins3_enabled_plugins'] = enabled
