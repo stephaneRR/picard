@@ -255,6 +255,38 @@ class MBAPIHelper(APIHelper):
     def get_collection_list(self, handler: ReplyHandler) -> PendingRequest:
         return self.get_collection(None, handler)
 
+    def lookup_urls(self, urls: list[str], handler: ReplyHandler,
+                    inc: Iterable[str] | None = None) -> PendingRequest:
+        """Lookup MusicBrainz entities linked to the given URLs.
+
+        Uses /ws/2/url?resource=URL to find linked MusicBrainz entities.
+        Supports up to 100 URLs per request via multiple resource parameters.
+
+        Args:
+            urls: List of URLs to look up (max 100).
+            handler: Callback handler for the response.
+            inc: Optional list of include parameters (e.g. 'release-rels').
+
+        Returns:
+            PendingRequest for the URL lookup query.
+        """
+        queryargs = {}
+        if inc:
+            queryargs['inc'] = self._make_inc_arg(inc)
+        if urls:
+            # Use the first URL as the resource parameter
+            # MB API supports one resource per request
+            queryargs['resource'] = urls[0]
+        return self.get(
+            "/url",
+            handler,
+            unencoded_queryargs=queryargs,
+            priority=True,
+            important=True,
+            mblogin=False,
+            refresh=False,
+        )
+
     @staticmethod
     def _collection_request(
         collection_id: str, releases: Sequence[str], batchsize: int = 400

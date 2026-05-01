@@ -46,6 +46,8 @@ import re
 from typing import TYPE_CHECKING
 import weakref
 
+from functools import partial
+
 from picard import log
 from picard.config import get_config
 from picard.file import File
@@ -56,6 +58,10 @@ from picard.i18n import (
 from picard.item import (
     FileListItem,
     Item,
+)
+from picard.matching.discogs_matcher import (
+    compute_match_score,
+    find_best_candidate,
 )
 from picard.metadata import SimMatchRelease
 from picard.track import Track
@@ -296,9 +302,25 @@ class Cluster(FileList):
         return best_match.result.release
 
     def lookup_metadata(self):
-        """Try to identify the cluster using the existing metadata."""
+        """Try to identify the cluster using the existing metadata.
+
+        If Discogs enriched search is enabled and a token is configured,
+        try Discogs first to get a better match via duration comparison.
+        Falls back to standard MusicBrainz search.
+        """
         if self._lookup_task:
             return
+        config = get_config()
+        discogs_enabled = config.setting.get('discogs_enabled', True)
+        discogs_token = config.setting.get('discogs_token', '')
+
+        if discogs_enabled and discogs_token:
+            self._lookup_via_discogs()
+        else:
+            self._lookup_via_mb()
+
+    def _lookup_via_mb(self):
+        """Standard MusicBrainz lookup (original behavior)."""
         self.tagger.window.set_statusbar_message(
             N_("Looking up the metadata for cluster %(album)s…"),
             {'album': self.metadata['album']},
@@ -311,6 +333,156 @@ class Cluster(FileList):
             tracks=str(len(self.files)),
             limit=config.setting['query_limit'],
         )
+
+    def _get_files_info(self):
+        """Gather file info (durations, titles) for matching."""
+        files_info = []
+        for file in self.files:
+            info = {
+                'duration_ms': file.metadata.length or 0,
+                'title': file.metadata.get('title', '') or file.metadata.get('~filename', ''),
+            }
+            files_info.append(info)
+        return files_info
+
+    def _lookup_via_discogs(self):
+        """Try Discogs first to enrich the lookup, then fall back to MB."""
+        self.tagger.window.set_statusbar_message(
+            N_("Searching Discogs for cluster %(album)s…"),
+            {'album': self.metadata['album']},
+        )
+        artist = self.metadata['albumartist']
+        title = self.metadata['album']
+
+        self._lookup_task = self.tagger.discogs_api.search_releases(
+            artist, title,
+            handler=partial(self._discogs_search_finished),
+        )
+
+    def _discogs_search_finished(self, document, error):
+        """Handle Discogs search results."""
+        if error or not document:
+            log.debug("Discogs search failed or empty, falling back to MB: %s", error)
+            self._lookup_task = None
+            self._lookup_via_mb()
+            return
+
+        results = document.get('results', [])
+        if not results:
+            log.debug("No Discogs results for cluster %r, falling back to MB",
+                      self.metadata['album'])
+            self._lookup_task = None
+            self._lookup_via_mb()
+            return
+
+        # Filter candidates by track count if possible
+        num_files = len(self.files)
+        filtered = []
+        for result in results:
+            # Discogs search results don't include track count,
+            # so we keep the top results and filter later by tracklist
+            filtered.append(result)
+            if len(filtered) >= 3:
+                break
+
+        if not filtered:
+            self._lookup_task = None
+            self._lookup_via_mb()
+            return
+
+        # Fetch release details for each candidate
+        self._discogs_candidates = []
+        self._discogs_pending = len(filtered)
+
+        for result in filtered:
+            release_id = result.get('id')
+            if release_id:
+                self.tagger.discogs_api.get_release(
+                    release_id,
+                    handler=partial(self._discogs_release_fetched),
+                )
+            else:
+                self._discogs_pending -= 1
+
+        if self._discogs_pending == 0:
+            self._lookup_task = None
+            self._lookup_via_mb()
+
+    def _discogs_release_fetched(self, document, error):
+        """Handle individual Discogs release detail response."""
+        self._discogs_pending -= 1
+
+        if not error and document:
+            self._discogs_candidates.append(document)
+
+        # Wait until all candidates have been fetched
+        if self._discogs_pending > 0:
+            return
+
+        self._lookup_task = None
+        files_info = self._get_files_info()
+
+        if not self._discogs_candidates:
+            log.debug("No Discogs release details available, falling back to MB")
+            self._lookup_via_mb()
+            return
+
+        config = get_config()
+        threshold = config.setting.get('discogs_match_threshold', 0.7)
+
+        best = find_best_candidate(files_info, self._discogs_candidates)
+        if best:
+            score = compute_match_score(files_info, best)
+            if score >= threshold:
+                discogs_id = best.get('id')
+                discogs_url = f"https://www.discogs.com/release/{discogs_id}"
+                log.debug("Discogs match found (score=%.2f): %s", score, discogs_url)
+
+                self.tagger.window.set_statusbar_message(
+                    N_("Found Discogs match for cluster %(album)s, looking up on MusicBrainz…"),
+                    {'album': self.metadata['album']},
+                )
+
+                # Look up the Discogs URL on MusicBrainz to find linked release
+                self._lookup_task = self.tagger.mb_api.lookup_urls(
+                    [discogs_url],
+                    handler=partial(self._discogs_url_lookup_finished),
+                    inc=['release-rels'],
+                )
+                return
+
+        log.debug("No Discogs candidate above threshold (%.2f), falling back to MB", threshold)
+        self._lookup_via_mb()
+
+    def _discogs_url_lookup_finished(self, document, http, error):
+        """Handle MusicBrainz URL lookup response for Discogs URL."""
+        self._lookup_task = None
+
+        if error or not document:
+            log.debug("MB URL lookup failed, falling back to MB search: %s", error)
+            self._lookup_via_mb()
+            return
+
+        # Try to extract a release MBID from the URL entity relations
+        try:
+            relations = document.get('relations', [])
+            for rel in relations:
+                if rel.get('type') == 'discogs' and 'release' in rel:
+                    release_id = rel['release'].get('id')
+                    if release_id:
+                        log.info("Discogs enriched search found MB release: %s", release_id)
+                        self.tagger.window.set_statusbar_message(
+                            N_("Cluster %(album)s identified via Discogs!"),
+                            {'album': self.metadata['album']},
+                            timeout=3000,
+                        )
+                        self.tagger.move_files_to_album(self.files, release_id)
+                        return
+        except (KeyError, TypeError, AttributeError) as e:
+            log.debug("Error parsing MB URL lookup response: %s", e)
+
+        log.debug("No MB release linked to Discogs URL, falling back to MB search")
+        self._lookup_via_mb()
 
     def clear_lookup_task(self):
         if self._lookup_task:

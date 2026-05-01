@@ -557,6 +557,12 @@ TextOption(
     title=N_("Sessions directory"),
 )
 
+# picard/webservice/api_helpers/discogs.py
+# Discogs enriched search
+BoolOption('setting', 'discogs_enabled', True, title=N_("Enable Discogs enriched search"))
+TextOption('setting', 'discogs_token', '', title=N_("Discogs API token"))
+FloatOption('setting', 'discogs_match_threshold', 0.7, title=N_("Discogs match threshold"))
+
 # picard/ui/searchdialog/album.py
 #
 Option('persist', 'albumsearchdialog_header_state', QtCore.QByteArray())

@@ -183,6 +183,7 @@ from picard.webservice.api_helpers import (
     AcoustIdAPIHelper,
     MBAPIHelper,
 )
+from picard.webservice.api_helpers.discogs import DiscogsAPIHelper
 
 import picard.resources  # noqa: F401 # pylint: disable=unused-import
 
@@ -377,6 +378,7 @@ class Tagger(QtWidgets.QApplication):
         self.register_cleanup(self.webservice.stop)
         self.webservice.pending_requests_changed.connect(self.tagger_stats_changed)
         self.mb_api = MBAPIHelper(self.webservice)
+        self.discogs_api = DiscogsAPIHelper(self.webservice)
         load_user_collections()
 
     def _init_format_registry(self):
