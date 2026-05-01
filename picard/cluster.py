@@ -85,7 +85,7 @@ CLUSTER_COMPARISON_WEIGHTS = {
     'format': 2,
     'releasecountry': 2,
     'releasetype': 10,
-    'totalalbumtracks': 5,
+    'totalalbumtracks': 10,
 }
 
 
