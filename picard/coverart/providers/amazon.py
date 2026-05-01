@@ -29,6 +29,11 @@ from picard.coverart.image import CoverArtImage
 from picard.coverart.providers.provider import CoverArtProvider
 from picard.i18n import N_
 from picard.util import parse_amazon_url
+from picard.webservice import ratecontrol
+
+
+ratecontrol.set_minimum_delay_for_url("https://ec1.images-amazon.com", 200)
+ratecontrol.set_minimum_delay_for_url("https://ec2.images-amazon.com", 200)
 
 
 # amazon image file names are unique on all servers and constructed like
