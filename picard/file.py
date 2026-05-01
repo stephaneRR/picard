@@ -57,6 +57,12 @@ from pathlib import Path
 import re
 import shutil
 import time
+
+try:
+    from send2trash import send2trash
+except ImportError:
+    send2trash = None
+
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -512,6 +518,8 @@ class File(MetadataItem):
             new_filename = self._rename(old_filename, metadata, config.setting)
         # Move extra files (images, playlists, etc.)
         self._move_additional_files(old_filename, new_filename, config)
+        # Delete junk files (send to trash)
+        self._delete_junk_files(os.path.dirname(old_filename), config)
         # Delete empty directories
         if config.setting['delete_empty_dirs']:
             dirname = os.path.dirname(old_filename)
@@ -745,6 +753,41 @@ class File(MetadataItem):
                 shutil.move(old_file_path, new_file_path)
             except OSError as why:
                 log.error("Failed to move %r to %r: %s", old_file_path, new_file_path, why)
+
+    def _delete_junk_files(self, dirname, config):
+        """Delete junk files matching the configured pattern by sending to trash."""
+        if not config.setting.get('delete_junk_files', False):
+            return
+        pattern_string = config.setting.get('delete_junk_files_pattern', '')
+        if not pattern_string:
+            return
+        patterns = self._compile_move_additional_files_pattern(pattern_string)
+        if not patterns:
+            return
+        try:
+            with os.scandir(dirname) as scan:
+                for entry in scan:
+                    if entry.is_file():
+                        is_hidden = entry.name.startswith('.')
+                        for pattern_regex, match_hidden in patterns:
+                            if is_hidden and not match_hidden:
+                                continue
+                            if pattern_regex.match(entry.name):
+                                # Don't delete files loaded in Picard
+                                if self.tagger.files.get(decode_filename(entry.path)):
+                                    log.debug("File loaded in tagger, not deleting %r", entry.path)
+                                    break
+                                log.debug("Sending junk file to trash: %r", entry.path)
+                                try:
+                                    if send2trash is not None:
+                                        send2trash(entry.path)
+                                    else:
+                                        os.remove(entry.path)
+                                except Exception as e:
+                                    log.warning("Failed to send to trash %r: %s", entry.path, e)
+                                break
+        except OSError as e:
+            log.warning("Error scanning directory for junk files %r: %s", dirname, e)
 
     def remove(self, from_parent_item=True):
         if from_parent_item and self.parent_item:

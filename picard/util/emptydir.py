@@ -25,6 +25,11 @@ import os
 import os.path
 import shutil
 
+try:
+    from send2trash import send2trash
+except ImportError:
+    send2trash = None
+
 from PyQt6.QtCore import QStandardPaths
 
 
@@ -85,4 +90,7 @@ def rm_empty_dir(path):
     elif not is_empty_dir(path):
         raise SkipRemoveDir("%s is not empty" % path)
     else:
-        shutil.rmtree(path)
+        if send2trash is not None:
+            send2trash(path)
+        else:
+            shutil.rmtree(path)

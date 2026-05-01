@@ -440,6 +440,8 @@ ListOption('setting', 'release_type_scores', DEFAULT_RELEASE_TYPE_SCORES, title=
 # picard/ui/options/renaming.py
 # File Naming
 BoolOption('setting', 'delete_empty_dirs', True, title=N_("Delete empty directories"))
+BoolOption('setting', 'delete_junk_files', False, title=N_("Delete junk files on save"))
+TextOption('setting', 'delete_junk_files_pattern', "*.url *.nfo *.m3u *.txt *.log", title=N_("Junk file patterns"))
 BoolOption('setting', 'move_additional_files', False, title=N_("Move additional files"))
 TextOption('setting', 'move_additional_files_pattern', "*.jpg *.png", title=N_("Additional file patterns"))
 BoolOption('setting', 'move_files', False, title=N_("Move files"))
