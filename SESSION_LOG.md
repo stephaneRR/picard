@@ -341,3 +341,26 @@
 - delete_junk_files_pattern (*.url *.nfo etc.) — configurable dans Options > File Naming
 - Les deux systèmes sont complémentaires et fonctionnent correctement
 - Chaîne de sauvegarde vérifiée : move additional → delete junk → delete empty dirs → l'auto-remove ne se lance qu'après succès complet
+
+### Rate limiting et backoff ✅
+- Backoff exponentiel max réduit de 32s à 8s (exposant 5→3) — 32s trop agressif pour un desktop
+- Message visible dans la barre de statut quand le serveur renvoie 503/429 : "Server busy — retrying in Xs"
+- Message va dans l'Activity History (Ctrl+H) pour diagnostic
+- Analyse complète : 3 thread pools indépendants (general, priority, save) + AcoustID en QProcess séparé
+
+### Largeur ETA fixée ✅
+- Label ETA passé à 70px (format "02m 30s"), compteurs numériques restent à 40px
+
+### Suspension UI pendant le save ✅
+- Tri et filtres de l'arbre suspendus pendant le save batch (même mécanisme que le chargement)
+- Compteur _pending_saves_count décrémenté à chaque fichier terminé
+- Réactivation quand le dernier fichier finit
+- Appliqué au save manuel ET à l'auto-save
+- Analyse : le thread UI était saturé par les re-tri/re-filtre à chaque fichier → impression de pause 30s
+
+### Analyse thread pools et priorités
+- save_thread_pool (1 thread) : sauvegarde séquentielle — ne bloque PAS les autres pools
+- thread_pool (N threads) : chargement fichiers
+- priority_thread_pool (1 thread) : feedback immédiat
+- AcoustID : QProcess externe (fpcalc) — complètement indépendant
+- Le bottleneck n'est pas les threads mais le thread UI saturé par les callbacks de mise à jour
