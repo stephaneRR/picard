@@ -68,6 +68,7 @@ from picard.config import get_config
 from picard.const import appdirs
 from picard.const.defaults import DEFAULT_CACHE_SIZE_IN_BYTES
 from picard.debug_opts import DebugOpt
+from picard.i18n import N_
 from picard.oauth import OAuthManager
 from picard.util import (
     bytes2human,
@@ -591,7 +592,15 @@ class WebService(QtCore.QObject):
             ):
                 slow_down = True
                 retries = request.mark_for_retry()
-                log.debug("Retrying %s (#%d)", display_reply_url, retries)
+                delay_s = ratecontrol.current_delay(hostkey) / 1000
+                log.warning("Server rate limit hit (%d), retrying %s in ~%.0fs (#%d)",
+                            response_code, display_reply_url, delay_s, retries)
+                if delay_s >= 2 and hasattr(self.tagger, 'window') and self.tagger.window:
+                    self.tagger.window.set_statusbar_message(
+                        N_("Server busy (%(code)d) — retrying in %(delay).0fs…"),
+                        {'code': response_code, 'delay': delay_s},
+                        timeout=int(delay_s * 1000),
+                    )
                 self.add_request(request)
 
             elif handler is not None:

@@ -187,7 +187,7 @@ def _slow_down(hostkey: HostKey):
     # Backoff exponentially until ~30 seconds between requests.
     delay = max(pow(2, REQUEST_DELAY_EXPONENT[hostkey]) * 1000, REQUEST_DELAY_MINIMUM[hostkey])
 
-    REQUEST_DELAY_EXPONENT[hostkey] = min(REQUEST_DELAY_EXPONENT[hostkey] + 1, 5)
+    REQUEST_DELAY_EXPONENT[hostkey] = min(REQUEST_DELAY_EXPONENT[hostkey] + 1, 3)
 
     # Slow start threshold is ~1/2 of the window size up until we saw
     # trouble.  Shrink the new window size back to 1.
