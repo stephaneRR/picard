@@ -548,13 +548,20 @@ class AlbumItem(TreeItem):
             self.setToolTip(
                 self.columns.status_icon_column, _("Processing error(s): See the Errors tab in the Album Info dialog")
             )
-        elif album.is_complete():
+        elif album.is_complete() and album.metadata.images:
             if album.is_modified():
                 self.setIcon(self.columns.status_icon_column, AlbumItem.icon_cd_saved_modified)
                 self.setToolTip(self.columns.status_icon_column, _("Album modified and complete"))
             else:
                 self.setIcon(self.columns.status_icon_column, AlbumItem.icon_cd_saved)
                 self.setToolTip(self.columns.status_icon_column, _("Album unchanged and complete"))
+        elif album.is_complete():
+            if album.is_modified():
+                self.setIcon(self.columns.status_icon_column, AlbumItem.icon_cd_modified)
+                self.setToolTip(self.columns.status_icon_column, _("Album modified, waiting for cover art"))
+            else:
+                self.setIcon(self.columns.status_icon_column, AlbumItem.icon_cd)
+                self.setToolTip(self.columns.status_icon_column, _("Album complete, waiting for cover art"))
         else:
             if album.is_modified():
                 self.setIcon(self.columns.status_icon_column, AlbumItem.icon_cd_modified)
