@@ -1113,6 +1113,7 @@ class NonCompatID3File(ID3File):
         # Clear the cache so it doesn't leak memory.
         self._cached_mutagen_file = None
         self._cached_mutagen_mtime = None
+        self._cached_mutagen_tags = None
         file = self._get_file(filename)
         if file.tags is None:
             file.add_tags()

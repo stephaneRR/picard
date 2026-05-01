@@ -30,7 +30,7 @@
 - [x] Auto-vérification versions alternatives si nb pistes ne matche pas ✅ TASK-07 — notification statusbar, 11 tests
 
 ### P2 — Impact moyen, bons gains
-- [ ] Cache persistant metadata MB avec bouton "Vider le cache" (base existante dans _mb_cache de session_loader.py:577)
+- [x] Cache persistant metadata MB ✅ TASK-10 — JSON par MBID, TTL 7j, 9 tests
 - [ ] Pré-chargement versions release-group dès le lookup initial (au lieu d'attendre le clic droit — basetreeview.py:160-174)
 - [ ] Garder l'objet Mutagen du parsing initial pour la sauvegarde (évite double parsing — gain ~200ms/FLAC, ~50ms/MP3 — stocker en attribut de File, vérifier mtime avant réutilisation)
 - [ ] Ne pas ré-embedder la cover si identique au save précédent

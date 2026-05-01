@@ -172,3 +172,13 @@
 - Protection : fichiers chargés dans Picard jamais supprimés
 - Setting delete_junk_files = False par défaut (opt-in)
 - 4 688 tests passent, 0 échec
+
+### TASK-10 — Cache persistant metadata MusicBrainz ✅
+- 2 commits : cache module (156L + 9 tests) + fix écriture redondante sur cache hit
+- QA : 7 checks OK, 1 fix appliqué (skip cache.put quand données viennent du cache)
+- Cache JSON par MBID dans QStandardPaths.CacheLocation/metadata/
+- TTL 7 jours par défaut, thread-safe, _CACHE_HIT_SENTINEL pour bypass load_request guard
+- Intégré dans album.load() (check avant API) et _release_request_finished (save après succès)
+- refresh=True bypass le cache, erreurs jamais cachées
+- Settings metadata_cache_enabled=True, metadata_cache_ttl_days=7
+- 4 697 tests passent, 0 échec
