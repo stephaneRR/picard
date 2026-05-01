@@ -51,7 +51,8 @@ class InfoStatus(QtWidgets.QWidget, Ui_InfoStatus):
 
     def _init_labels(self):
         size = self._size
-        for val_label in (self.val1, self.val2, self.val3, self.val4, self.val5):
+        self.val1.setFixedWidth(70)
+        for val_label in (self.val2, self.val3, self.val4, self.val5):
             val_label.setFixedWidth(40)
         self.label1.setPixmap(self.icon_eta.pixmap(size))
         self.label1.hide()
