@@ -545,23 +545,20 @@ class AutoSaveWorkflowTest(PicardTestCase):
             self.assertTrue(mock_timer.singleShot.called)
 
     def test_workflow_auto_save_execute_then_remove(self):
-        """Scenario: Full flow from perfect album to save to removal.
+        """Scenario: Full flow from perfect album to save to finish.
 
-        Auto-save executes → files are saved → removal is scheduled.
+        Auto-save executes → files are saved → _auto_save_finish is called.
         """
         tracks, files = self._setup_album(num_tracks=2, with_images=True)
         self.album._auto_save_scheduled = True
+        self.tagger._auto_save_queue = [self.album]
+        self.tagger._auto_save_running = False
 
-        with patch('picard.album.QtCore.QTimer') as mock_timer:
-            self.album._auto_save_execute()
+        self.album._auto_save_execute()
 
-            for f in files:
-                f.save.assert_called_once()
-
-            # auto_remove_saved_albums is True, so removal should be scheduled
-            self.assertTrue(mock_timer.singleShot.called)
-            removal_delay = mock_timer.singleShot.call_args[0][0]
-            self.assertEqual(removal_delay, 3000)
+        for f in files:
+            f.save.assert_called_once()
+        self.assertTrue(self.tagger._auto_save_running)
 
     def test_workflow_auto_save_cancelled_by_state_change(self):
         """Scenario: Album becomes perfect, auto-save scheduled, then user
@@ -634,3 +631,89 @@ class AutoSaveWorkflowTest(PicardTestCase):
         with patch('picard.album.QtCore.QTimer') as mock_timer:
             self.album._on_cover_art_complete()
             mock_timer.singleShot.assert_not_called()
+
+
+class AutoSaveSerializationTest(PicardTestCase):
+    """Tests for serialized auto-save (one album at a time)."""
+
+    def setUp(self):
+        super().setUp()
+        self.tagger.window = Mock()
+        self.set_config_values(setting={
+            'auto_save_perfect_albums': True,
+            'auto_save_delay_seconds': 5,
+            'auto_remove_saved_albums': False,
+        })
+
+    def _make_perfect_album(self, album_id):
+        album = Album(album_id)
+        album.loaded = True
+        album.metadata['album'] = f'Album {album_id}'
+        album.metadata['albumartist'] = 'Artist'
+        track = Track(f'track-{album_id}')
+        file = Mock(spec=File)
+        file.is_saved.return_value = False
+        file.state = File.State.NORMAL
+        track.files.append(file)
+        album.tracks = [track]
+        album.unmatched_files = Mock()
+        album.unmatched_files.files = []
+        album.metadata.images.append(Mock())
+        return album, file
+
+    def test_second_album_waits_for_first(self):
+        """When two albums enqueue, only the first starts saving."""
+        album_a, file_a = self._make_perfect_album('album-a')
+        album_b, file_b = self._make_perfect_album('album-b')
+
+        with patch('picard.album.QtCore.QTimer'):
+            album_a._auto_save_enqueue()
+            album_b._auto_save_enqueue()
+
+        self.assertTrue(self.tagger._auto_save_running)
+        file_a.save.assert_called_once()
+        file_b.save.assert_not_called()
+
+    def test_second_album_starts_after_first_finishes(self):
+        """After first album finishes, second starts."""
+        album_a, file_a = self._make_perfect_album('album-a')
+        album_b, file_b = self._make_perfect_album('album-b')
+
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            album_a._auto_save_enqueue()
+            album_b._auto_save_enqueue()
+
+            file_a.save.assert_called_once()
+            file_b.save.assert_not_called()
+
+            # Simulate all files of album A saved
+            album_a._auto_save_finish()
+
+            self.assertFalse(self.tagger._auto_save_running)
+            self.assertIn(album_b, self.tagger._auto_save_queue)
+
+    def test_queue_order_preserved(self):
+        """Albums are processed in FIFO order."""
+        albums = []
+        for i in range(3):
+            album, _ = self._make_perfect_album(f'album-{i}')
+            albums.append(album)
+
+        with patch('picard.album.QtCore.QTimer'):
+            for album in albums:
+                album._auto_save_enqueue()
+
+        self.assertEqual(self.tagger._auto_save_queue[0], albums[0])
+
+    def test_cancelled_album_removed_from_queue(self):
+        """If album is no longer perfect when its turn comes, skip it."""
+        album_a, file_a = self._make_perfect_album('album-a')
+        album_b, file_b = self._make_perfect_album('album-b')
+
+        with patch('picard.album.QtCore.QTimer'):
+            album_a._auto_save_enqueue()
+            album_b._auto_save_enqueue()
+
+            album_a._auto_save_finish()
+
+            self.assertNotIn(album_a, self.tagger._auto_save_queue)

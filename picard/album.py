@@ -339,7 +339,7 @@ class Album(MetadataItem):
         self._auto_save_scheduled = True
         delay_ms = config.setting['auto_save_delay_seconds'] * 1000
         log.debug("Auto-save scheduled for perfect album %r (delay=%dms)", self, delay_ms)
-        QtCore.QTimer.singleShot(delay_ms, partial(self._auto_save_execute))
+        QtCore.QTimer.singleShot(delay_ms, partial(self._auto_save_enqueue))
 
     def _on_cover_art_complete(self):
         """Called when all cover art providers have finished processing."""
@@ -362,11 +362,34 @@ class Album(MetadataItem):
         )
         run_album_metadata_processors(self, self.metadata, release_node)
 
+    def _auto_save_enqueue(self):
+        """Add this album to the serialized auto-save queue."""
+        if not hasattr(self.tagger, '_auto_save_queue'):
+            self.tagger._auto_save_queue = []
+            self.tagger._auto_save_running = False
+        if self not in self.tagger._auto_save_queue:
+            self.tagger._auto_save_queue.append(self)
+            log.debug("Auto-save queued for %r (queue size=%d)", self, len(self.tagger._auto_save_queue))
+        self._auto_save_process_queue()
+
+    def _auto_save_process_queue(self):
+        """Process the next album in the auto-save queue if none is running."""
+        if not hasattr(self.tagger, '_auto_save_queue'):
+            return
+        if self.tagger._auto_save_running:
+            return
+        if not self.tagger._auto_save_queue:
+            return
+        album = self.tagger._auto_save_queue[0]
+        album._auto_save_execute()
+
     def _auto_save_execute(self):
-        """Execute the auto-save after the delay."""
+        """Execute the auto-save for this album. Called one album at a time."""
         self._auto_save_scheduled = False
+        self.tagger._auto_save_running = True
         if not self.is_perfect():
             log.debug("Auto-save cancelled for %r, no longer perfect", self)
+            self._auto_save_finish()
             return
         log.info("Auto-saving perfect album: %s - %s",
                  self.metadata.get('albumartist', ''), self.metadata.get('album', ''))
@@ -382,19 +405,31 @@ class Album(MetadataItem):
                 self.tagger.window.suspend_while_loading_enter()
             for file in files_to_save:
                 file.save()
+        else:
+            self._auto_save_finish()
+
+    def _auto_save_finish(self):
+        """Called when auto-save for this album is complete. Process next in queue."""
+        if hasattr(self.tagger, '_auto_save_queue') and self in self.tagger._auto_save_queue:
+            self.tagger._auto_save_queue.remove(self)
+        self.tagger._auto_save_running = False
         config = get_config()
         if config.setting['auto_remove_saved_albums']:
-            QtCore.QTimer.singleShot(3000, partial(self._auto_remove_after_save))
+            QtCore.QTimer.singleShot(1000, partial(self._auto_remove_after_save))
         else:
-            QtCore.QTimer.singleShot(3000, partial(self._auto_save_check_errors))
+            QtCore.QTimer.singleShot(1000, partial(self._auto_save_check_errors))
+        QtCore.QTimer.singleShot(500, partial(self._auto_save_process_queue))
 
     def _check_all_saved(self):
-        """Called by each file after save completes. If all files are saved
-        and auto-remove is enabled, remove the album from the list."""
+        """Called by each file after save completes."""
+        if any(f.state == File.State.PENDING for t in self.tracks for f in t.files):
+            return
+        # All files done — signal auto-save queue to proceed
+        if getattr(self.tagger, '_auto_save_running', False):
+            self._auto_save_finish()
+            return
         config = get_config()
         if not config.setting['auto_remove_saved_albums']:
-            return
-        if any(f.state == File.State.PENDING for t in self.tracks for f in t.files):
             return
         if any(f.state == File.State.ERROR for t in self.tracks for f in t.files):
             return

@@ -936,6 +936,7 @@ class File(MetadataItem):
             config = get_config()
             clear_existing_tags = config.setting['clear_existing_tags']
             ignored_tags = set(config.setting['compare_ignore_tags'])
+            old_state = self.state
 
             for name in self._tags_to_update(ignored_tags):
                 new_values = self.format_specific_metadata(self.metadata, name, config.setting)
@@ -946,12 +947,19 @@ class File(MetadataItem):
                     self.similarity = self.orig_metadata.compare(self.metadata, ignored_tags)
                     if self.state == File.State.NORMAL:
                         self.state = File.State.CHANGED
+                        log.debug("File %r reverted NORMAL→CHANGED: tag %r differs (orig=%r, new=%r)",
+                                  self.base_filename, name, orig_values, new_values)
                     break
             else:
                 self.similarity = 1.0
                 if self.state in (File.State.CHANGED, File.State.NORMAL):
                     if self.metadata.images and self.orig_metadata.images != self.metadata.images:
                         self.state = File.State.CHANGED
+                        if old_state == File.State.NORMAL:
+                            log.debug("File %r reverted NORMAL→CHANGED: images differ "
+                                      "(metadata=%d images, orig=%d images)",
+                                      self.base_filename,
+                                      len(self.metadata.images), len(self.orig_metadata.images))
                     else:
                         self.state = File.State.NORMAL
         if signal:
