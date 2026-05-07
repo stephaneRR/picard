@@ -147,6 +147,7 @@ class Cluster(FileList):
             if removed_files:
                 self.album.remove_metadata_images_from_children(removed_files)
             self.album.update()
+            self.album._check_auto_save()
 
     def add_files(self, files: Iterable[File], new_album=True):
         added_files = set(files) - set(self.files)
@@ -355,7 +356,8 @@ class Cluster(FileList):
         title = self.metadata['album']
 
         self._lookup_task = self.tagger.discogs_api.search_releases(
-            artist, title,
+            artist,
+            title,
             handler=partial(self._discogs_search_finished),
         )
 
@@ -369,8 +371,7 @@ class Cluster(FileList):
 
         results = document.get('results', [])
         if not results:
-            log.debug("No Discogs results for cluster %r, falling back to MB",
-                      self.metadata['album'])
+            log.debug("No Discogs results for cluster %r, falling back to MB", self.metadata['album'])
             self._lookup_task = None
             self._lookup_via_mb()
             return

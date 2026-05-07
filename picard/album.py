@@ -309,19 +309,18 @@ class Album(MetadataItem):
         there are unsaved tag changes, cover art is loaded, and no tasks
         are pending (neither critical nor optional).
         """
-        return (self.loaded
-                and self.is_complete()
-                and self.is_modified()
-                and self.metadata.images
-                and not self.has_critical_tasks()
-                and not self._has_pending_optional_tasks())
+        return (
+            self.loaded
+            and self.is_complete()
+            and self.is_modified()
+            and self.metadata.images
+            and not self.has_critical_tasks()
+            and not self._has_pending_optional_tasks()
+        )
 
     def _has_pending_optional_tasks(self):
         """Check if there are any pending optional tasks (e.g., cover art downloads)."""
-        return any(
-            task_info.type in (TaskType.OPTIONAL, TaskType.PLUGIN)
-            for task_info in self._pending_tasks.values()
-        )
+        return any(task_info.type in (TaskType.OPTIONAL, TaskType.PLUGIN) for task_info in self._pending_tasks.values())
 
     def _check_auto_save(self):
         """Check if auto-save should be triggered for this album."""
@@ -329,10 +328,16 @@ class Album(MetadataItem):
         if not config.setting['auto_save_perfect_albums']:
             return
         if not self.is_perfect():
-            log.debug("Auto-save check for %r: not perfect (loaded=%s, complete=%s, modified=%s, images=%s, critical_tasks=%s, optional_tasks=%s)",
-                      self, self.loaded, self.is_complete(), self.is_modified(),
-                      bool(self.metadata.images), self.has_critical_tasks(),
-                      self._has_pending_optional_tasks())
+            log.debug(
+                "Auto-save check for %r: not perfect (loaded=%s, complete=%s, modified=%s, images=%s, critical_tasks=%s, optional_tasks=%s)",
+                self,
+                self.loaded,
+                self.is_complete(),
+                self.is_modified(),
+                bool(self.metadata.images),
+                self.has_critical_tasks(),
+                self._has_pending_optional_tasks(),
+            )
             return
         if self._auto_save_scheduled:
             return
@@ -346,8 +351,9 @@ class Album(MetadataItem):
         if not self.is_perfect():
             log.debug("Auto-save cancelled for %r, no longer perfect", self)
             return
-        log.info("Auto-saving perfect album: %s - %s",
-                 self.metadata.get('albumartist', ''), self.metadata.get('album', ''))
+        log.info(
+            "Auto-saving perfect album: %s - %s", self.metadata.get('albumartist', ''), self.metadata.get('album', '')
+        )
         self.tagger.window.set_statusbar_message(
             N_("Auto-saving perfect album: %(album)s"),
             {'album': self.metadata['album']},
@@ -902,7 +908,9 @@ class Album(MetadataItem):
 
         log.debug(
             "Track count mismatch for %r (%d files, %d tracks), checking alternatives",
-            self, num_files, num_tracks,
+            self,
+            num_files,
+            num_tracks,
         )
 
         if self.release_group.loaded:
@@ -921,10 +929,14 @@ class Album(MetadataItem):
             if version['totaltracks'] == num_files and version['id'] != self.id:
                 log.info(
                     "Better version found for %r: %s (%s)",
-                    self, version['id'], version['name'],
+                    self,
+                    version['id'],
+                    version['name'],
                 )
                 self.tagger.window.set_statusbar_message(
-                    N_("Better version found for \"%(album)s\": %(version)s — Right-click the album → Other versions to switch"),
+                    N_(
+                        "Better version found for \"%(album)s\": %(version)s — Right-click the album → Other versions to switch"
+                    ),
                     {
                         'album': self.metadata['album'],
                         'version': version['name'],
@@ -1084,12 +1096,14 @@ class Album(MetadataItem):
         if new_album:
             self.update(update_tracks=False)
             self.add_metadata_images_from_children([file])
+        self._check_auto_save()
 
     def remove_file(self, track, file, new_album=True):
         self._files_count -= 1
         if new_album:
             self.update(update_tracks=False)
             self.remove_metadata_images_from_children([file])
+        self._check_auto_save()
 
     @staticmethod
     def _match_files(files, tracks, unmatched_files, threshold=0):

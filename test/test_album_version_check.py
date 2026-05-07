@@ -18,7 +18,6 @@
 # along with this program; if not, see <https://www.gnu.org/licenses/>.
 
 from unittest.mock import (
-    MagicMock,
     Mock,
     patch,
 )
@@ -134,7 +133,7 @@ class AlbumVersionCheckTest(PicardTestCase):
         self.release_group.versions = [
             self._make_version('album-1', 12, '12 tracks version'),  # current album
             self._make_version('album-2', 10, '10 tracks version'),  # better match
-            self._make_version('album-3', 8, '8 tracks version'),    # no match
+            self._make_version('album-3', 8, '8 tracks version'),  # no match
         ]
 
         self.album._check_for_better_version()

@@ -31,7 +31,7 @@ from picard.config import get_config
 
 
 if TYPE_CHECKING:
-    from picard.plugin3.plugin import Plugin
+    pass
 
 
 @dataclass

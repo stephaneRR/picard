@@ -19,7 +19,6 @@
 
 from unittest.mock import (
     MagicMock,
-    patch,
 )
 
 from test.picardtestcase import PicardTestCase
@@ -32,12 +31,13 @@ from picard.webservice.api_helpers.discogs import (
 
 
 class TestDiscogsAPIHelper(PicardTestCase):
-
     def setUp(self):
         super().setUp()
-        self.set_config_values(setting={
-            'discogs_token': 'test_token_123',
-        })
+        self.set_config_values(
+            setting={
+                'discogs_token': 'test_token_123',
+            }
+        )
         self.mock_webservice = MagicMock()
         self.mock_webservice.get_url = MagicMock(return_value=MagicMock())
         self.api = DiscogsAPIHelper(self.mock_webservice)
@@ -102,9 +102,7 @@ class TestDiscogsAPIHelper(PicardTestCase):
     def test_parse_json_response_success(self):
         """Verify JSON parsing on success."""
         callback = MagicMock()
-        self.api._parse_json_response(
-            b'{"results": []}', MagicMock(), None, callback
-        )
+        self.api._parse_json_response(b'{"results": []}', MagicMock(), None, callback)
         callback.assert_called_once()
         result, error = callback.call_args[0]
         self.assertEqual(result, {"results": []})
@@ -113,9 +111,7 @@ class TestDiscogsAPIHelper(PicardTestCase):
     def test_parse_json_response_error(self):
         """Verify error handling on request error."""
         callback = MagicMock()
-        self.api._parse_json_response(
-            None, MagicMock(), Exception("network error"), callback
-        )
+        self.api._parse_json_response(None, MagicMock(), Exception("network error"), callback)
         callback.assert_called_once()
         result, error = callback.call_args[0]
         self.assertIsNone(result)
@@ -124,9 +120,7 @@ class TestDiscogsAPIHelper(PicardTestCase):
     def test_parse_json_response_invalid_json(self):
         """Verify error handling on invalid JSON."""
         callback = MagicMock()
-        self.api._parse_json_response(
-            b'not valid json', MagicMock(), None, callback
-        )
+        self.api._parse_json_response(b'not valid json', MagicMock(), None, callback)
         callback.assert_called_once()
         result, error = callback.call_args[0]
         self.assertIsNone(result)

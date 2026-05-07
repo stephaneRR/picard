@@ -662,6 +662,15 @@ class MetadataBox(QtWidgets.QTableWidget):
     def _update_objects(self, objects):
         for obj in set(objects):
             obj.update()
+            if isinstance(obj, Album):
+                obj._check_auto_save()
+            elif hasattr(obj, 'album') and isinstance(obj.album, Album):
+                obj.album._check_auto_save()
+            elif isinstance(obj, File) and obj.parent_item:
+                parent = obj.parent_item
+                album = getattr(parent, 'album', None)
+                if isinstance(album, Album):
+                    album._check_auto_save()
 
     def _set_tag_values(self, tag, values, objects=None):
         self._update_objects(self._set_tag_values_delayed_updates(tag, values, objects=objects))

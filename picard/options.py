@@ -595,6 +595,7 @@ BoolOption('persist', 'script_editor_wordwrap', False)
 
 # picard/plugin3/manager.py
 #
+TextOption('setting', 'plugin_registry_cache_dir', '')
 Option('setting', 'plugins3_metadata', {})
 ListOption('setting', 'plugins3_enabled_plugins', [])
 ListOption('persist', 'plugins3_do_not_update', [], title=N_("Plugins to exclude from updates"))

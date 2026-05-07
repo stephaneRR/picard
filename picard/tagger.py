@@ -138,13 +138,7 @@ from picard.i18n import (
     setup_gettext,
 )
 from picard.options import init_options
-
-
 from picard.plugin3.pluginmanager import PluginManager
-
-# Plugin3 system is always available (git backend no longer required)
-HAS_PLUGIN3 = True
-
 from picard.releasegroup import ReleaseGroup
 from picard.remotecommands import RemoteCommands
 from picard.session.constants import SessionConstants
@@ -199,6 +193,10 @@ from picard.ui.util import (
     FileDialog,
     show_session_not_found_dialog,
 )
+
+
+# Plugin3 system is always available (git backend no longer required)
+HAS_PLUGIN3 = True
 
 
 # A "fix" for https://bugs.python.org/issue1438480
