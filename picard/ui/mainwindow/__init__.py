@@ -1626,6 +1626,11 @@ class MainWindow(QtWidgets.QMainWindow, PreserveGeometry):
     def refresh(self):
         self.tagger.refresh(self.selected_objects)
 
+    def reload_cover_art(self):
+        for obj in self.selected_objects:
+            if isinstance(obj, Album) and obj.loaded:
+                obj.reload_cover_art()
+
     def browser_lookup(self):
         if not self.selected_objects:
             return
@@ -1715,6 +1720,7 @@ class MainWindow(QtWidgets.QMainWindow, PreserveGeometry):
         self.enable_action(MainAction.ANALYZE, can_analyze)
         self.enable_action(MainAction.GENERATE_FINGERPRINTS, have_files)
         self.enable_action(MainAction.REFRESH, can_refresh)
+        self.enable_action(MainAction.RELOAD_COVER_ART, can_refresh)
         self.enable_action(MainAction.AUTOTAG, can_autotag)
         self.enable_action(MainAction.BROWSER_LOOKUP, can_browser_lookup)
         self.enable_action(MainAction.PLAY_FILE_EXTERNAL, have_files)

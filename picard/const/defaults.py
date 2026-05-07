@@ -94,13 +94,15 @@ DEFAULT_DRIVES = get_default_cdrom_drives()
 DEFAULT_CA_NEVER_REPLACE_TYPE_INCLUDE = ('front',)
 DEFAULT_CA_NEVER_REPLACE_TYPE_EXCLUDE = ('matrix/runout', 'raw/unedited', 'watermark')
 DEFAULT_CA_PROVIDERS = [
-    ('Amazon', True),
+    ('Local', False),
+    ('Discogs', True),
     ('Deezer', True),
+    ('iTunes', True),
+    ('Amazon', True),
+    ('UrlRelationships', True),
     ('fanart.tv', True),
     ('Cover Art Archive', True),
-    ('UrlRelationships', True),
     ('CaaReleaseGroup', True),
-    ('Local', False),
 ]
 DEFAULT_COVER_IMAGE_FILENAME = 'cover'
 

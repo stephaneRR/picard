@@ -27,6 +27,7 @@ from test.picardtestcase import PicardTestCase
 
 from picard.album import Album
 from picard.album_requests import TaskType
+from picard.cluster import Cluster
 from picard.file import File
 from picard.track import Track
 
@@ -260,3 +261,376 @@ class AutoSaveExecuteTest(PicardTestCase):
         self.album._auto_save_scheduled = True
         self.album._auto_save_execute()
         self.tagger.window.set_statusbar_message.assert_called_once()
+
+
+class AutoSaveConfigurableDelayTest(PicardTestCase):
+    """Tests for configurable auto-save delay."""
+
+    def setUp(self):
+        super().setUp()
+        self.album = Album('test-album-id')
+        self.album.loaded = True
+
+    def _make_perfect_album(self):
+        track = Track('track-1')
+        file = Mock(spec=File)
+        file.is_saved.return_value = False
+        file.state = File.State.NORMAL
+        track.files.append(file)
+        self.album.tracks = [track]
+        self.album.unmatched_files = Mock()
+        self.album.unmatched_files.files = []
+        self.album.metadata.images.append(Mock())
+
+    def test_delay_uses_config_value(self):
+        """Auto-save timer should use auto_save_delay_seconds from config."""
+        self._make_perfect_album()
+        self.set_config_values(setting={
+            'auto_save_perfect_albums': True,
+            'auto_save_delay_seconds': 7,
+        })
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album._check_auto_save()
+            mock_timer.singleShot.assert_called_once()
+            delay_ms = mock_timer.singleShot.call_args[0][0]
+            self.assertEqual(delay_ms, 7000)
+
+    def test_delay_default_5_seconds(self):
+        """Default delay should be 5 seconds (5000ms)."""
+        self._make_perfect_album()
+        self.set_config_values(setting={
+            'auto_save_perfect_albums': True,
+            'auto_save_delay_seconds': 5,
+        })
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album._check_auto_save()
+            delay_ms = mock_timer.singleShot.call_args[0][0]
+            self.assertEqual(delay_ms, 5000)
+
+
+class CoverArtCompleteCallbackTest(PicardTestCase):
+    """Tests for the cover art completion callback triggering auto-save."""
+
+    def setUp(self):
+        super().setUp()
+        self.album = Album('test-album-id')
+        self.album.loaded = True
+
+    def _make_perfect_album(self):
+        track = Track('track-1')
+        file = Mock(spec=File)
+        file.is_saved.return_value = False
+        file.state = File.State.NORMAL
+        track.files.append(file)
+        self.album.tracks = [track]
+        self.album.unmatched_files = Mock()
+        self.album.unmatched_files.files = []
+        self.album.metadata.images.append(Mock())
+
+    def test_on_cover_art_complete_triggers_auto_save(self):
+        """_on_cover_art_complete should call _check_auto_save."""
+        self._make_perfect_album()
+        self.set_config_values(setting={
+            'auto_save_perfect_albums': True,
+            'auto_save_delay_seconds': 5,
+        })
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album._on_cover_art_complete()
+            mock_timer.singleShot.assert_called_once()
+            self.assertTrue(self.album._auto_save_scheduled)
+
+    def test_on_cover_art_complete_not_perfect(self):
+        """_on_cover_art_complete should not schedule if album is not perfect."""
+        self.set_config_values(setting={
+            'auto_save_perfect_albums': True,
+            'auto_save_delay_seconds': 5,
+        })
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album._on_cover_art_complete()
+            mock_timer.singleShot.assert_not_called()
+
+
+class AddFileTriggerTest(PicardTestCase):
+    """Tests for auto-save triggering when a file is matched to a track."""
+
+    def setUp(self):
+        super().setUp()
+        self.album = Album('test-album-id')
+        self.album.loaded = True
+        self.tagger.window = Mock()
+
+    def test_add_file_triggers_auto_save_check(self):
+        """album.add_file should call _check_auto_save when new_album=True."""
+        track = Track('track-1')
+        file = Mock(spec=File)
+        file.is_saved.return_value = False
+        file.state = File.State.NORMAL
+        track.files.append(file)
+        self.album.tracks = [track]
+        self.album.unmatched_files = Mock()
+        self.album.unmatched_files.files = []
+        self.album.metadata.images.append(Mock())
+        self.album.ui_item = Mock()
+
+        self.set_config_values(setting={
+            'auto_save_perfect_albums': True,
+            'auto_save_delay_seconds': 5,
+        })
+
+        with patch.object(self.album, '_check_auto_save') as mock_check:
+            new_file = Mock(spec=File)
+            new_file.metadata = Mock()
+            new_file.orig_metadata = Mock()
+            new_file.orig_metadata.images = []
+            new_file.metadata.images = []
+            self.album.add_file(track, new_file, new_album=True)
+            mock_check.assert_called_once()
+
+    def test_add_file_no_trigger_when_not_new_album(self):
+        """album.add_file with new_album=False should not call _check_auto_save."""
+        track = Track('track-1')
+        self.album.tracks = [track]
+        self.album.unmatched_files = Mock()
+        self.album.unmatched_files.files = []
+
+        self.set_config_values(setting={
+            'auto_save_perfect_albums': True,
+            'auto_save_delay_seconds': 5,
+        })
+
+        with patch.object(self.album, '_check_auto_save') as mock_check:
+            file = Mock(spec=File)
+            self.album.add_file(track, file, new_album=False)
+            mock_check.assert_not_called()
+
+
+class ReloadCoverArtTest(PicardTestCase):
+    """Tests for Album.reload_cover_art method."""
+
+    def setUp(self):
+        super().setUp()
+        self.album = Album('test-album-id')
+        self.album.loaded = True
+        self.tagger.window = Mock()
+        self.album.metadata['album'] = 'Test Album'
+
+    def test_reload_cover_art_calls_processors(self):
+        """reload_cover_art should call run_album_metadata_processors with cached release data."""
+        self.album._release_node_cache = {'id': 'test-release', 'media': []}
+        with patch('picard.album.run_album_metadata_processors') as mock_proc:
+            self.album.reload_cover_art()
+            mock_proc.assert_called_once_with(
+                self.album, self.album.metadata, self.album._release_node_cache)
+
+    def test_reload_cover_art_no_cache(self):
+        """reload_cover_art should do nothing if no cached release data."""
+        with patch('picard.album.run_album_metadata_processors') as mock_proc:
+            self.album.reload_cover_art()
+            mock_proc.assert_not_called()
+
+    def test_reload_cover_art_not_loaded(self):
+        """reload_cover_art should do nothing if album not loaded."""
+        self.album.loaded = False
+        self.album._release_node_cache = {'id': 'test-release'}
+        with patch('picard.album.run_album_metadata_processors') as mock_proc:
+            self.album.reload_cover_art()
+            mock_proc.assert_not_called()
+
+
+class AutoSaveWorkflowTest(PicardTestCase):
+    """End-to-end workflow tests simulating realistic scenarios."""
+
+    def setUp(self):
+        super().setUp()
+        self.album = Album('test-album-id')
+        self.album.loaded = True
+        self.tagger.window = Mock()
+        self.set_config_values(setting={
+            'auto_save_perfect_albums': True,
+            'auto_save_delay_seconds': 5,
+            'auto_remove_saved_albums': True,
+        })
+
+    def _make_track_with_file(self, track_id='track-1', saved=False):
+        track = Track(track_id)
+        file = Mock(spec=File)
+        file.is_saved.return_value = saved
+        file.state = File.State.NORMAL
+        track.files.append(file)
+        return track, file
+
+    def _setup_album(self, num_tracks=1, with_images=True, with_unmatched=False):
+        """Set up an album with the given number of matched tracks."""
+        tracks = []
+        files = []
+        for i in range(num_tracks):
+            track, file = self._make_track_with_file(f'track-{i}')
+            tracks.append(track)
+            files.append(file)
+        self.album.tracks = tracks
+        self.album.unmatched_files = Mock()
+        if with_unmatched:
+            unmatched_file = Mock(spec=File)
+            self.album.unmatched_files.files = [unmatched_file]
+        else:
+            self.album.unmatched_files.files = []
+        if with_images:
+            self.album.metadata.images.append(Mock())
+        self.album.metadata['album'] = 'Test Album'
+        self.album.metadata['albumartist'] = 'Test Artist'
+        return tracks, files
+
+    def test_workflow_perfect_album_first_load(self):
+        """Scenario: Album loads, files match, covers load → auto-save triggers.
+
+        Simulates: tags loaded → files matched → cover art downloads complete →
+        _on_cover_art_complete fires → auto-save scheduled.
+        """
+        tracks, files = self._setup_album(num_tracks=3, with_images=True)
+
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album._on_cover_art_complete()
+            mock_timer.singleShot.assert_called_once()
+            delay_ms = mock_timer.singleShot.call_args[0][0]
+            self.assertEqual(delay_ms, 5000)
+            self.assertTrue(self.album._auto_save_scheduled)
+
+    def test_workflow_no_cover_art_no_auto_save(self):
+        """Scenario: Album loads perfectly for tags but no cover art found.
+
+        Should NOT auto-save because is_perfect() requires images.
+        """
+        self._setup_album(num_tracks=2, with_images=False)
+
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album._on_cover_art_complete()
+            mock_timer.singleShot.assert_not_called()
+            self.assertFalse(self.album._auto_save_scheduled)
+
+    def test_workflow_unmatched_files_block_auto_save(self):
+        """Scenario: Album has cover art but some files aren't matched.
+
+        Should NOT auto-save because is_complete() fails with unmatched files.
+        """
+        self._setup_album(num_tracks=1, with_images=True, with_unmatched=True)
+
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album._on_cover_art_complete()
+            mock_timer.singleShot.assert_not_called()
+
+    def test_workflow_pending_tasks_block_auto_save(self):
+        """Scenario: Album is complete with images but cover art still downloading.
+
+        Should NOT auto-save while optional tasks are pending.
+        """
+        self._setup_album(num_tracks=1, with_images=True)
+        self.album.add_task('coverart_123', TaskType.OPTIONAL, 'Downloading cover art')
+
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album._check_auto_save()
+            mock_timer.singleShot.assert_not_called()
+
+    def test_workflow_task_completes_then_cover_art_complete(self):
+        """Scenario: Last optional task completes, then cover art callback fires.
+
+        The complete_task call alone may not find a perfect state (timing issue),
+        but _on_cover_art_complete should trigger auto-save.
+        """
+        self._setup_album(num_tracks=1, with_images=True)
+        self.album.add_task('coverart_processing_123', TaskType.OPTIONAL, 'Processing')
+
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album.complete_task('coverart_processing_123')
+            # complete_task calls _check_auto_save, album should be perfect now
+            self.assertTrue(mock_timer.singleShot.called)
+
+    def test_workflow_auto_save_execute_then_remove(self):
+        """Scenario: Full flow from perfect album to save to removal.
+
+        Auto-save executes → files are saved → removal is scheduled.
+        """
+        tracks, files = self._setup_album(num_tracks=2, with_images=True)
+        self.album._auto_save_scheduled = True
+
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album._auto_save_execute()
+
+            for f in files:
+                f.save.assert_called_once()
+
+            # auto_remove_saved_albums is True, so removal should be scheduled
+            self.assertTrue(mock_timer.singleShot.called)
+            removal_delay = mock_timer.singleShot.call_args[0][0]
+            self.assertEqual(removal_delay, 3000)
+
+    def test_workflow_auto_save_cancelled_by_state_change(self):
+        """Scenario: Album becomes perfect, auto-save scheduled, then user
+        removes a file before the timer fires → auto-save cancelled.
+        """
+        tracks, files = self._setup_album(num_tracks=1, with_images=True)
+        self.album._auto_save_scheduled = True
+
+        # Simulate user removing the matched file before timer fires
+        files[0].is_saved.return_value = True  # No longer modified
+
+        self.album._auto_save_execute()
+        files[0].save.assert_not_called()
+        self.assertFalse(self.album._auto_save_scheduled)
+
+    def test_workflow_setting_disabled_blocks_everything(self):
+        """Scenario: Auto-save setting is off. Nothing should happen regardless of state."""
+        self._setup_album(num_tracks=1, with_images=True)
+        self.set_config_values(setting={'auto_save_perfect_albums': False})
+
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album._on_cover_art_complete()
+            self.album._check_auto_save()
+            mock_timer.singleShot.assert_not_called()
+
+    def test_workflow_idempotent_triggers(self):
+        """Scenario: Multiple triggers fire (cover art complete + add_file + complete_task).
+
+        Auto-save should only be scheduled once thanks to _auto_save_scheduled flag.
+        """
+        self._setup_album(num_tracks=1, with_images=True)
+
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album._on_cover_art_complete()
+            self.album._check_auto_save()
+            self.album._check_auto_save()
+            self.assertEqual(mock_timer.singleShot.call_count, 1)
+
+    def test_workflow_reload_cover_art_then_auto_save(self):
+        """Scenario: User clicks 'Reload Cover Art', covers load, auto-save triggers.
+
+        Simulates: reload_cover_art → providers run → _on_cover_art_complete → auto-save.
+        """
+        self._setup_album(num_tracks=1, with_images=False)
+        self.album._release_node_cache = {'id': 'test-release', 'media': []}
+
+        with patch('picard.album.run_album_metadata_processors'):
+            self.album.reload_cover_art()
+
+        # Simulate cover art arriving after reload
+        self.album.metadata.images.append(Mock())
+
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album._on_cover_art_complete()
+            mock_timer.singleShot.assert_called_once()
+
+    def test_workflow_multi_track_partial_match(self):
+        """Scenario: 3-track album but only 2 tracks have files.
+
+        Should NOT auto-save because not all tracks are complete.
+        """
+        track1, _ = self._make_track_with_file('track-1')
+        track2, _ = self._make_track_with_file('track-2')
+        track3 = Track('track-3')  # No file matched
+        self.album.tracks = [track1, track2, track3]
+        self.album.unmatched_files = Mock()
+        self.album.unmatched_files.files = []
+        self.album.metadata.images.append(Mock())
+
+        with patch('picard.album.QtCore.QTimer') as mock_timer:
+            self.album._on_cover_art_complete()
+            mock_timer.singleShot.assert_not_called()

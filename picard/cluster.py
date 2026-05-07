@@ -42,10 +42,14 @@ from collections import (
 )
 from collections.abc import Iterable
 from functools import partial
+import json
 from operator import attrgetter
 import re
 from typing import TYPE_CHECKING
+from urllib.parse import urlencode
 import weakref
+
+from PyQt6.QtCore import QUrl
 
 from picard import log
 from picard.config import get_config
@@ -285,8 +289,42 @@ class Cluster(FileList):
         if best_match_release:
             statusbar(N_("Cluster %(album)s identified!"))
             self.tagger.move_files_to_album(self.files, best_match_release['id'])
+        elif self._try_discogs_tag_fallback():
+            statusbar(N_("Cluster %(album)s tagged from Discogs (no MusicBrainz match)"))
         else:
-            statusbar(N_("No matching releases for cluster %(album)s"))
+            self._try_itunes_tag_fallback()
+
+    def _prefetch_discogs_cover(self, discogs_release):
+        """Pre-download the best Discogs cover image into the disk cache.
+
+        Runs in parallel with the MB lookup — no added latency.
+        """
+        from picard.coverart.providers.discogs import _best_image_url
+
+        images = discogs_release.get('images', [])
+        url = _best_image_url(images)
+        if not url:
+            return
+
+        log.debug("Pre-fetching Discogs cover: %s", url)
+        if not hasattr(self.tagger, '_prefetched_cover_urls'):
+            self.tagger._prefetched_cover_urls = {}
+
+        self.tagger.webservice.download_url(
+            url=QUrl(url),
+            handler=partial(self._prefetch_cover_downloaded, url),
+            priority=False,
+        )
+
+    def _prefetch_cover_downloaded(self, url, data, http, error):
+        """Store pre-fetched cover data for later use by cover art provider."""
+        if error or not data or len(data) < 1000:
+            log.debug("Pre-fetch cover failed or too small: %s", error)
+            return
+        log.debug("Pre-fetched Discogs cover (%d bytes): %s", len(data), url)
+        if not hasattr(self.tagger, '_prefetched_cover_data'):
+            self.tagger._prefetched_cover_data = {}
+        self.tagger._prefetched_cover_data[url] = data
 
     def _match_to_release(self, releases, threshold=0):
         # multiple matches -- calculate similarities to each of them
@@ -437,6 +475,14 @@ class Cluster(FileList):
                 discogs_url = f"https://www.discogs.com/release/{discogs_id}"
                 log.debug("Discogs match found (score=%.2f): %s", score, discogs_url)
 
+                # Store Discogs release data for the cover art provider
+                if not hasattr(self.tagger, '_discogs_release_cache'):
+                    self.tagger._discogs_release_cache = {}
+                self.tagger._discogs_release_cache[discogs_id] = best
+
+                # Pre-download cover art in parallel with MB lookup
+                self._prefetch_discogs_cover(best)
+
                 self.tagger.window.set_statusbar_message(
                     N_("Found Discogs match for cluster %(album)s, looking up on MusicBrainz…"),
                     {'album': self.metadata['album']},
@@ -474,6 +520,16 @@ class Cluster(FileList):
                     release_id = rel['release'].get('id')
                     if release_id:
                         log.info("Discogs enriched search found MB release: %s", release_id)
+                        # Link MBID to Discogs release for cover art provider
+                        if hasattr(self.tagger, '_discogs_release_cache'):
+                            for discogs_id, data in self.tagger._discogs_release_cache.items():
+                                if not hasattr(self.tagger, '_mbid_to_discogs'):
+                                    self.tagger._mbid_to_discogs = {}
+                                self.tagger._mbid_to_discogs[release_id] = {
+                                    'discogs_id': discogs_id,
+                                    'images': data.get('images', []),
+                                }
+                                break
                         self.tagger.window.set_statusbar_message(
                             N_("Cluster %(album)s identified via Discogs!"),
                             {'album': self.metadata['album']},
@@ -486,6 +542,191 @@ class Cluster(FileList):
 
         log.debug("No MB release linked to Discogs URL, falling back to MB search")
         self._lookup_via_mb()
+
+    def _try_discogs_tag_fallback(self):
+        """Apply Discogs tags to files when MB found no match.
+
+        Returns True if Discogs tags were applied.
+        """
+        candidates = getattr(self, '_discogs_candidates', [])
+        if not candidates:
+            return False
+
+        config = get_config()
+        threshold = config.setting['discogs_match_threshold']
+        files_info = self._get_files_info()
+        best = find_best_candidate(files_info, candidates)
+        if not best:
+            return False
+
+        score = compute_match_score(files_info, best)
+        if score < threshold:
+            return False
+
+        log.info("Using Discogs tags as fallback (score=%.2f): %s - %s",
+                 score, best.get('artists_sort', ''), best.get('title', ''))
+        self._apply_discogs_tags(best)
+        return True
+
+    def _apply_discogs_tags(self, discogs_release):
+        """Apply metadata from a Discogs release to the cluster's files."""
+        artists = discogs_release.get('artists', [])
+        artist_name = ', '.join(a.get('name', '') for a in artists if a.get('name'))
+        album_title = discogs_release.get('title', '')
+        year = str(discogs_release.get('year', ''))
+        genres = discogs_release.get('genres', [])
+        styles = discogs_release.get('styles', [])
+        genre_str = '; '.join(genres + styles) if genres or styles else ''
+        label = ''
+        labels = discogs_release.get('labels', [])
+        if labels:
+            label = labels[0].get('name', '')
+
+        tracklist = [t for t in discogs_release.get('tracklist', [])
+                     if t.get('type_', 'track') == 'track']
+
+        for i, file in enumerate(self.files):
+            file.metadata['albumartist'] = artist_name
+            file.metadata['album'] = album_title
+            if year:
+                file.metadata['date'] = year
+                file.metadata['originaldate'] = year
+            if genre_str:
+                file.metadata['genre'] = genre_str
+            if label:
+                file.metadata['label'] = label
+
+            if i < len(tracklist):
+                track = tracklist[i]
+                file.metadata['title'] = track.get('title', '')
+                file.metadata['tracknumber'] = track.get('position', str(i + 1))
+            file.metadata['totaltracks'] = str(len(tracklist))
+
+            # Mark as tagged from Discogs
+            discogs_id = discogs_release.get('id')
+            if discogs_id:
+                file.metadata['discogs_release_id'] = str(discogs_id)
+
+            file.update()
+
+        # Update cluster display
+        self.metadata['album'] = album_title
+        self.metadata['albumartist'] = artist_name
+        self.update()
+
+        # Store for cover art provider
+        discogs_id = discogs_release.get('id')
+        if discogs_id:
+            images = discogs_release.get('images', [])
+            if images:
+                if not hasattr(self.tagger, '_discogs_release_cache'):
+                    self.tagger._discogs_release_cache = {}
+                self.tagger._discogs_release_cache[discogs_id] = discogs_release
+
+    def _try_itunes_tag_fallback(self):
+        """Try iTunes Search API as last resort for tagging."""
+        artist = self.metadata['albumartist'] or self.metadata['artist']
+        album = self.metadata['album']
+        if not artist or not album:
+            self.tagger.window.set_statusbar_message(
+                N_("No matching releases for cluster %(album)s"),
+                {'album': self.metadata['album']},
+                timeout=3000,
+            )
+            return
+
+        term = f"{artist} {album}"
+        queryargs = urlencode({
+            'term': term,
+            'media': 'music',
+            'entity': 'album',
+            'limit': '5',
+        })
+        url = f"https://itunes.apple.com:443/search?{queryargs}"
+
+        log.debug("iTunes fallback: searching for %r", term)
+        self.tagger.window.set_statusbar_message(
+            N_("Searching iTunes for cluster %(album)s…"),
+            {'album': self.metadata['album']},
+        )
+        self.tagger.webservice.download_url(
+            url=QUrl(url),
+            handler=partial(self._itunes_lookup_finished, artist, album),
+            priority=True,
+        )
+
+    def _itunes_lookup_finished(self, artist, album, data, http, error):
+        """Handle iTunes search response for tag fallback."""
+        if error or not data:
+            log.debug("iTunes fallback: error or empty response: %s", error)
+            self.tagger.window.set_statusbar_message(
+                N_("No matching releases for cluster %(album)s"),
+                {'album': self.metadata['album']},
+                timeout=3000,
+            )
+            return
+
+        try:
+            if isinstance(data, bytes):
+                data = data.decode('utf-8')
+            response = json.loads(data)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            log.debug("iTunes fallback: failed to parse response")
+            return
+
+        from picard.util.astrcmp import astrcmp
+
+        results = response.get('results', [])
+        best = None
+        for result in results:
+            result_artist = result.get('artistName', '')
+            result_album = result.get('collectionName', '')
+            if (astrcmp(artist.lower(), result_artist.lower()) >= 0.6
+                    and astrcmp(album.lower(), result_album.lower()) >= 0.6):
+                best = result
+                break
+
+        if not best:
+            log.debug("iTunes fallback: no matching result")
+            self.tagger.window.set_statusbar_message(
+                N_("No matching releases for cluster %(album)s"),
+                {'album': self.metadata['album']},
+                timeout=3000,
+            )
+            return
+
+        log.info("Using iTunes tags as fallback: %s - %s",
+                 best.get('artistName', ''), best.get('collectionName', ''))
+
+        artist_name = best.get('artistName', '')
+        album_title = best.get('collectionName', '')
+        release_date = best.get('releaseDate', '')
+        year = release_date[:4] if release_date else ''
+        genre = best.get('primaryGenreName', '')
+        track_count = best.get('trackCount', 0)
+
+        for i, file in enumerate(self.files):
+            file.metadata['albumartist'] = artist_name
+            file.metadata['artist'] = artist_name
+            file.metadata['album'] = album_title
+            if year:
+                file.metadata['date'] = year
+                file.metadata['originaldate'] = year
+            if genre:
+                file.metadata['genre'] = genre
+            file.metadata['totaltracks'] = str(track_count)
+            file.metadata['tracknumber'] = str(i + 1)
+            file.update()
+
+        self.metadata['album'] = album_title
+        self.metadata['albumartist'] = artist_name
+        self.update()
+
+        self.tagger.window.set_statusbar_message(
+            N_("Cluster %(album)s tagged from iTunes (no MusicBrainz/Discogs match)"),
+            {'album': album_title},
+            timeout=3000,
+        )
 
     def clear_lookup_task(self):
         if self._lookup_task:

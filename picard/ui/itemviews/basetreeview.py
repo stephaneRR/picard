@@ -285,6 +285,7 @@ class BaseTreeView(QtWidgets.QTreeWidget):
                 MainAction.GENERATE_FINGERPRINTS if obj.get_num_total_files() > 0 else None,
                 '-',
                 MainAction.REFRESH,
+                MainAction.RELOAD_COVER_ART if obj.loaded else None,
             )
             plugin_actions = list(ext_point_album_actions)
 

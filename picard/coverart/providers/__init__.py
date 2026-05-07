@@ -36,7 +36,9 @@ from picard.coverart.providers.caa_release_group import (
     CoverArtProviderCaaReleaseGroup,
 )
 from picard.coverart.providers.deezer import DeezerCoverArtProvider
+from picard.coverart.providers.discogs import DiscogsCoverArtProvider
 from picard.coverart.providers.fanarttv import FanartTvCoverArtProvider
+from picard.coverart.providers.itunes import ITunesCoverArtProvider
 from picard.coverart.providers.local import CoverArtProviderLocal
 from picard.coverart.providers.provider import (  # noqa: F401 # pylint: disable=unused-import
     CoverArtProvider,
@@ -70,11 +72,13 @@ def cover_art_providers():
 
 __providers = [
     CoverArtProviderLocal,
-    CoverArtProviderAmazon,
+    DiscogsCoverArtProvider,
     DeezerCoverArtProvider,
+    ITunesCoverArtProvider,
+    CoverArtProviderAmazon,
+    CoverArtProviderUrlRelationships,
     FanartTvCoverArtProvider,
     CoverArtProviderCaa,
-    CoverArtProviderUrlRelationships,
     CoverArtProviderCaaReleaseGroup,
 ]
 

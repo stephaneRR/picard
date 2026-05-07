@@ -337,8 +337,30 @@ class Album(MetadataItem):
         if self._auto_save_scheduled:
             return
         self._auto_save_scheduled = True
-        log.debug("Auto-save scheduled for perfect album %r", self)
-        QtCore.QTimer.singleShot(2000, partial(self._auto_save_execute))
+        delay_ms = config.setting['auto_save_delay_seconds'] * 1000
+        log.debug("Auto-save scheduled for perfect album %r (delay=%dms)", self, delay_ms)
+        QtCore.QTimer.singleShot(delay_ms, partial(self._auto_save_execute))
+
+    def _on_cover_art_complete(self):
+        """Called when all cover art providers have finished processing."""
+        log.debug("Cover art processing complete for %r", self)
+        self._check_auto_save()
+
+    def reload_cover_art(self):
+        """Re-run cover art providers without re-fetching tags from MusicBrainz."""
+        if not self.loaded:
+            return
+        release_node = getattr(self, '_release_node_cache', None)
+        if not release_node:
+            log.warning("Cannot reload cover art for %r: no cached release data", self)
+            return
+        log.info("Reloading cover art for %r", self)
+        self.tagger.window.set_statusbar_message(
+            N_("Reloading cover art for %(album)s …"),
+            {'album': self.metadata['album']},
+            timeout=3000,
+        )
+        run_album_metadata_processors(self, self.metadata, release_node)
 
     def _auto_save_execute(self):
         """Execute the auto-save after the delay."""
@@ -1084,6 +1106,7 @@ class Album(MetadataItem):
         if new_album:
             self.update(update_tracks=False)
             self.add_metadata_images_from_children([file])
+            self._check_auto_save()
 
     def remove_file(self, track, file, new_album=True):
         self._files_count -= 1

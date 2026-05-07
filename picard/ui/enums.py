@@ -86,6 +86,7 @@ class MainAction(str, Enum):
     PASTE = 'paste_action'
     PLAY_FILE_EXTERNAL = 'play_file_external_action'
     REFRESH = 'refresh_action'
+    RELOAD_COVER_ART = 'reload_cover_art_action'
     REMOVE = 'remove_action'
     REPORT_BUG = 'report_bug_action'
     SAVE = 'save_action'

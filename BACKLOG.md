@@ -53,6 +53,9 @@
 
 ### P1 — Auto-save albums parfaits
 - [x] is_perfect() + _check_auto_save + _auto_save_execute ✅ TASK-08 — 20 tests, délai 2s, setting off par défaut
+- [x] Fix timing auto-save ✅ Session 3 — callback _on_cover_art_complete, triggers add_file + _update_objects
+- [x] Délai configurable 1-30s (défaut 5s) ✅ Session 3 — spinbox dans Options > Advanced > Automation
+- [x] Bouton "Reload Cover Art" ✅ Session 3 — menu clic-droit album, relance providers sans re-fetch tags
 
 ### P1 — Meilleure version automatique
 - [x] Auto-vérification versions + notification statusbar ✅ TASK-07 — 11 tests
@@ -65,7 +68,19 @@
 ### P1 — Recherche enrichie Discogs
 - [x] Intégré dans le flow de clustering/lookup ✅ TASK-05
 - [x] Setting : token Discogs avec lien direct vers discogs.com/settings/developers ✅ — Options > Advanced > Discogs
+- [x] Discogs comme source de tags fallback quand MB ne trouve rien ✅ Session 3
+- [x] Pré-téléchargement cover Discogs pendant le matching MB ✅ Session 3
 - ~~Tooltip album "Identifié via Discogs"~~ — pas d'intérêt UX, retiré
+
+### P1 — Providers cover art additionnels
+- [x] Provider iTunes ✅ Session 3 — API gratuite, cherche par artiste+album, images 600x600
+- [x] Provider Discogs cover art ✅ Session 3 — cache matching + API search, pré-fetch parallèle
+- [x] Nouvel ordre : Local → Discogs → Deezer → iTunes → Amazon → URL Rels → fanart.tv → CAA → CAA RG ✅ Session 3
+
+### P1 — Tags multi-sources fallback
+- [x] MB → Discogs → iTunes ✅ Session 3 — tags Discogs (artiste, album, année, genre, tracklist), iTunes (artiste, album, année, genre)
+- [ ] Tags Discogs plus complets : barcode, catno, format (CD/Vinyl), pays de sortie
+- [ ] Tags iTunes plus complets : tracklist individuelle (nécessite 2ème appel lookup par collection ID)
 
 ## Simplification UI — Approche progressive
 > Principe : ajouter d'abord nos features dans l'UI existante, utiliser le produit, puis créer une

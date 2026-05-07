@@ -331,6 +331,55 @@
 - Pas de rate limit documenté sur les images statiques CDN Amazon
 - Les autres sources restent à 1 req/s par prudence (pas de limites officielles publiées)
 
+## 2026-05-07 — Session 3 : Fix auto-save + refonte flux covers + tags multi-sources
+
+### Contexte
+- Code review de Jules (Google) sur l'auto-save — approche correcte mais timing mauvais
+- Investigation approfondie du bug : `_check_auto_save()` appelé avant que les images soient stockées
+- Décision de refondre le flux complet : auto-save + covers + tags fallback
+
+### Fix auto-save ✅
+- **Cause racine** : `_check_auto_save()` dans `complete_task()` est appelé avant `_set_metadata()`
+- **Fix** : callback `_on_cover_art_complete()` dans coverart/__init__.py → appelé quand toute la queue est terminée
+- Triggers additionnels : `add_file()` (matching tardif), `_update_objects()` (éditions manuelles tags)
+- Délai configurable 1-30s (défaut 5s) dans Options > Advanced > Automation (spinbox)
+- 40 tests (20 existants + 20 nouveaux dont 11 workflows end-to-end)
+- 4724 tests passent
+
+### Bouton "Reload Cover Art" ✅
+- Menu clic-droit album → "Reload Cover Art" (relance providers sans re-fetcher tags MB)
+- Utilise `_release_node_cache` pour relancer `run_album_metadata_processors`
+- Enum `MainAction.RELOAD_COVER_ART`, action factory, handler mainwindow
+
+### Nouveaux providers cover art ✅
+- **iTunes** : API gratuite, sans clé, cherche par artiste+album, images 600x600
+- **Discogs** : utilise cache du matching (zéro requête) ou API search, pré-téléchargement parallèle
+- 20 tests (8 iTunes + 12 Discogs)
+
+### Pré-téléchargement cover Discogs ✅
+- Pendant le matching tags, quand Discogs trouve un bon candidat avec images :
+  - L'image est téléchargée en parallèle du MB URL lookup
+  - Stockée dans `_prefetched_cover_data[url]`
+  - Le Discogs cover provider utilise les bytes directement via `CoverArtImage(url, data=prefetched)`
+  - Résultat : zéro appel réseau supplémentaire pour la cover quand Discogs a matché
+
+### Nouvel ordre providers cover art
+- `Local → Discogs → Deezer → iTunes → Amazon → URL Rels → fanart.tv → CAA → CAA RG`
+- Discogs en 2ème : quand le matching a trouvé un résultat, la cover est quasi-instantanée
+
+### Tags multi-sources (fallback MB → Discogs → iTunes) ✅
+- Quand MB ne trouve pas de match mais Discogs a un bon candidat → tags Discogs appliqués
+  - Artiste, album, année, genre, styles, label, tracklist (titres + positions)
+  - Cover Discogs en cache pour le provider
+- Quand ni MB ni Discogs ne trouvent → iTunes cherché comme dernier recours
+  - Artiste, album, année, genre, nombre de pistes
+- 12 tests (5 Discogs fallback + 4 iTunes fallback + 3 intégration workflow)
+
+### Bilan
+- 16 fichiers modifiés/créés
+- 4756 tests passent, 0 échec
+- 92 tests nouveaux cette session
+
 ### Analyse UI réactivité au chargement (non implémenté, noté)
 - _scan_paths_recursive + format_registry.open bloquent le thread UI
 - Recommandation : QTimer par lots de ~50 fichiers (~30 lignes, approche A)

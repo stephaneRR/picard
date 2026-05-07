@@ -98,6 +98,7 @@ class CoverArt:
         except StopIteration:
             self._queue_generator = None
             self.image_processing.wait_for_processing()
+            self.album._on_cover_art_complete()
 
     def _start_queue(self) -> Generator[None, None, None]:
         """Creates a generator that processes all cover art providers.

@@ -480,6 +480,13 @@ def _create_refresh_action(parent):
     return action
 
 
+@add_action(MainAction.RELOAD_COVER_ART)
+def _create_reload_cover_art_action(parent):
+    action = QtGui.QAction(_("Reload &Cover Art"), parent)
+    action.triggered.connect(parent.reload_cover_art)
+    return action
+
+
 @add_action(MainAction.ENABLE_RENAMING)
 def _create_enable_renaming_action(parent):
     config = get_config()

@@ -42,6 +42,7 @@ class AutomationOptionsPage(OptionsPage):
     OPTIONS = (
         ('auto_save_perfect_albums', ['auto_save_perfect_albums']),
         ('auto_remove_saved_albums', ['auto_remove_saved_albums']),
+        ('auto_save_delay_seconds', ['auto_save_delay_seconds']),
     )
 
     def __init__(self, parent=None):
@@ -62,9 +63,19 @@ class AutomationOptionsPage(OptionsPage):
             _("Remove albums from the list after auto-save completes"))
         save_layout.addWidget(self.auto_remove_saved_albums)
 
+        delay_layout = QtWidgets.QHBoxLayout()
+        delay_label = QtWidgets.QLabel(_("Delay before auto-save:"))
+        self.auto_save_delay_seconds = QtWidgets.QSpinBox()
+        self.auto_save_delay_seconds.setRange(1, 30)
+        self.auto_save_delay_seconds.setSuffix(_(" seconds"))
+        delay_layout.addWidget(delay_label)
+        delay_layout.addWidget(self.auto_save_delay_seconds)
+        delay_layout.addStretch()
+        save_layout.addLayout(delay_layout)
+
         save_desc = QtWidgets.QLabel(
             _("When auto-save is enabled, albums with a gold+star icon will be "
-              "saved automatically after a 2-second delay. Files are tagged, "
+              "saved automatically after the configured delay. Files are tagged, "
               "renamed, and moved according to your file naming settings. "
               "If removal is enabled, the album disappears from the list once "
               "all files are saved successfully."))
@@ -77,7 +88,10 @@ class AutomationOptionsPage(OptionsPage):
 
         self.auto_save_perfect_albums.toggled.connect(
             self.auto_remove_saved_albums.setEnabled)
+        self.auto_save_perfect_albums.toggled.connect(
+            self.auto_save_delay_seconds.setEnabled)
         self.auto_remove_saved_albums.setEnabled(False)
+        self.auto_save_delay_seconds.setEnabled(False)
 
     def load(self):
         config = get_config()
@@ -85,7 +99,11 @@ class AutomationOptionsPage(OptionsPage):
             config.setting['auto_save_perfect_albums'])
         self.auto_remove_saved_albums.setChecked(
             config.setting['auto_remove_saved_albums'])
+        self.auto_save_delay_seconds.setValue(
+            config.setting['auto_save_delay_seconds'])
         self.auto_remove_saved_albums.setEnabled(
+            config.setting['auto_save_perfect_albums'])
+        self.auto_save_delay_seconds.setEnabled(
             config.setting['auto_save_perfect_albums'])
 
     def save(self):
@@ -94,6 +112,8 @@ class AutomationOptionsPage(OptionsPage):
             self.auto_save_perfect_albums.isChecked()
         config.setting['auto_remove_saved_albums'] = \
             self.auto_remove_saved_albums.isChecked()
+        config.setting['auto_save_delay_seconds'] = \
+            self.auto_save_delay_seconds.value()
 
 
 register_options_page(AutomationOptionsPage)
