@@ -410,6 +410,8 @@ class Album(MetadataItem):
 
     def _auto_save_finish(self):
         """Called when auto-save for this album is complete. Process next in queue."""
+        if not getattr(self.tagger, '_auto_save_running', False):
+            return
         if hasattr(self.tagger, '_auto_save_queue') and self in self.tagger._auto_save_queue:
             self.tagger._auto_save_queue.remove(self)
         self.tagger._auto_save_running = False
@@ -450,8 +452,10 @@ class Album(MetadataItem):
             return
         error_files = [f for t in self.tracks for f in t.files if f.state == File.State.ERROR]
         if error_files:
+            for f in error_files:
+                log.warning("Auto-save error for %r: %s", f.base_filename, f.errors)
             self.tagger.window.set_statusbar_message(
-                N_("Auto-save failed for %(album)s: %(count)d file(s) could not be saved"),
+                N_("Auto-save: %(count)d file(s) could not be saved in %(album)s (read-only or permission error)"),
                 {'album': self.metadata['album'], 'count': len(error_files)},
                 timeout=10000,
             )

@@ -649,7 +649,7 @@ class File(MetadataItem):
         if self.tagger.stopping:
             log.debug("Save of %r completed before stopping Picard", self.filename)
 
-        if error is None and not self.tagger.stopping:
+        if not self.tagger.stopping:
             self._notify_album_save_complete()
 
         if hasattr(self.tagger, '_pending_saves_count') and self.tagger._pending_saves_count > 0:
