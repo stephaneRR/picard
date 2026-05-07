@@ -25,6 +25,6 @@ Objectif : créer une version allégée, rapide et simple de MusicBrainz Picard.
 
 ## Stack
 
-- Python, PyQt5
-- API MusicBrainz
+- Python, PyQt6
+- API MusicBrainz, Discogs, iTunes
 - Mutagen (tags audio)
