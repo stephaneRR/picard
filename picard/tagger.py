@@ -282,6 +282,7 @@ class Tagger(QtWidgets.QApplication):
     def _init_logging(self, config):
         """Initialize logging & audit"""
         log.set_verbosity(logging.DEBUG if self._debug else config.setting['log_verbosity'])
+        log.enable_save_debug_log(config.fileName())
 
         setup_audit(self._audit)
 

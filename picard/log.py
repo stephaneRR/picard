@@ -34,6 +34,7 @@ from collections import (
 )
 from importlib.machinery import PathFinder
 import logging
+import os
 from pathlib import (
     Path,
     PurePath,
@@ -248,6 +249,46 @@ def debug_if(debug_opt, msg, *args, **kwargs):
     """
     if debug_opt.enabled:
         main_logger.debug(msg, *args, **kwargs)
+
+
+# SAVE DEBUG FILE LOGGING
+_save_debug_handler = None
+
+
+class SaveTraceFilter(logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+        return 'SAVE-TRACE' in msg or 'reverted NORMAL' in msg
+
+
+def enable_save_debug_log(config_file_path=None):
+    """Enable file logging for save-related debug traces.
+
+    Writes to save_debug.log next to the config file.
+    """
+    global _save_debug_handler
+    if _save_debug_handler:
+        return
+
+    if config_file_path:
+        log_dir = os.path.dirname(config_file_path)
+    else:
+        from PyQt6.QtCore import QStandardPaths
+        log_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
+
+    if not log_dir:
+        return
+
+    log_path = os.path.join(log_dir, 'save_debug.log')
+    try:
+        _save_debug_handler = logging.FileHandler(log_path, mode='w', encoding='utf-8')
+        _save_debug_handler.setLevel(logging.DEBUG)
+        _save_debug_handler.setFormatter(logging.Formatter(main_fmt, main_time_fmt))
+        _save_debug_handler.addFilter(SaveTraceFilter())
+        main_logger.addHandler(_save_debug_handler)
+        main_logger.info("Save debug log enabled: %s", log_path)
+    except OSError as e:
+        main_logger.warning("Could not enable save debug log: %s", e)
 
 
 # HISTORY LOGGING

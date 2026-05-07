@@ -662,8 +662,15 @@ class TrackItem(TreeItem):
 
 
 class FileItem(TreeItem):
+    _last_states = {}
+
     def update(self, update_track=True, update_selection=True):
         file = self.obj
+        prev_state = FileItem._last_states.get(id(file))
+        if prev_state == File.State.NORMAL and file.state != File.State.NORMAL:
+            log.debug("SAVE-TRACE UI: %r icon changed NORMAL→%s (similarity=%.2f)",
+                      file.base_filename, file.state.name, file.similarity)
+        FileItem._last_states[id(file)] = file.state
         icon, icon_tooltip = FileItem.decide_file_icon_info(file)
         self.setIcon(self.columns.status_icon_column, icon)
         self.setToolTip(self.columns.status_icon_column, icon_tooltip)
