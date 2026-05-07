@@ -1084,12 +1084,14 @@ class Album(MetadataItem):
         if new_album:
             self.update(update_tracks=False)
             self.add_metadata_images_from_children([file])
+        self._check_auto_save()
 
     def remove_file(self, track, file, new_album=True):
         self._files_count -= 1
         if new_album:
             self.update(update_tracks=False)
             self.remove_metadata_images_from_children([file])
+        self._check_auto_save()
 
     @staticmethod
     def _match_files(files, tracks, unmatched_files, threshold=0):

@@ -147,6 +147,7 @@ class Cluster(FileList):
             if removed_files:
                 self.album.remove_metadata_images_from_children(removed_files)
             self.album.update()
+            self.album._check_auto_save()
 
     def add_files(self, files: Iterable[File], new_album=True):
         added_files = set(files) - set(self.files)
