@@ -375,10 +375,29 @@
   - Artiste, album, année, genre, nombre de pistes
 - 12 tests (5 Discogs fallback + 4 iTunes fallback + 3 intégration workflow)
 
+### Sérialisation auto-saves ✅
+- Bug : fichiers repassent de coche verte (sauvé) à rectangle blanc (non sauvé) pendant l'auto-save
+- Plus fréquent avec plusieurs albums en auto-save simultané
+- Fix : queue FIFO sur le tagger, un seul album sauve à la fois
+- `_auto_save_enqueue` → `_auto_save_execute` → `_auto_save_finish` → prochain album
+- `_check_all_saved` détecte la fin et lance le suivant
+- 4 tests de sérialisation
+
+### Investigation bug visuel save (en cours)
+- Le bug persiste même sur un seul album — la sérialisation n'est pas la seule cause
+- Ajout de logging diagnostic SAVE-TRACE dans :
+  - `file._saving_finished` : images_changed, state après signal cascade
+  - `file.update()` : tag ou image exact qui cause le revert NORMAL→CHANGED
+  - `file.copy_metadata` : alerte si appelé sur un fichier déjà sauvé
+  - `track.update_file_metadata` : alerte si appelé sur un fichier sauvé
+  - `FileItem.update()` (UI) : changement d'icône NORMAL→autre
+- Le log est écrit dans `save_debug.log` à côté du fichier Picard.ini
+- En attente du log de Stephane pour identifier la cause racine
+
 ### Bilan
-- 16 fichiers modifiés/créés
-- 4756 tests passent, 0 échec
-- 92 tests nouveaux cette session
+- 19 fichiers modifiés/créés
+- 4760 tests passent, 0 échec
+- 96 tests nouveaux cette session
 
 ### Analyse UI réactivité au chargement (non implémenté, noté)
 - _scan_paths_recursive + format_registry.open bloquent le thread UI

@@ -56,6 +56,8 @@
 - [x] Fix timing auto-save ✅ Session 3 — callback _on_cover_art_complete, triggers add_file + _update_objects
 - [x] Délai configurable 1-30s (défaut 5s) ✅ Session 3 — spinbox dans Options > Advanced > Automation
 - [x] Bouton "Reload Cover Art" ✅ Session 3 — menu clic-droit album, relance providers sans re-fetch tags
+- [x] Sérialisation auto-saves ✅ Session 3 — queue FIFO, un album à la fois, élimine concurrence
+- [ ] Bug visuel save : fichiers repassent en "non sauvé" pendant le save — diagnostic SAVE-TRACE en place, en attente de logs
 
 ### P1 — Meilleure version automatique
 - [x] Auto-vérification versions + notification statusbar ✅ TASK-07 — 11 tests
