@@ -18,7 +18,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import json
 import os
 import shutil
 import tempfile
@@ -29,7 +28,6 @@ from picard.webservice.cache import MetadataCache
 
 
 class TestMetadataCache(unittest.TestCase):
-
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp(prefix='picard_test_metadata_cache_')
         self.cache = MetadataCache(self.tmpdir, ttl_days=7)
@@ -151,7 +149,7 @@ class TestMetadataCache(unittest.TestCase):
     def test_creates_directory(self):
         """Cache creates directory if it doesn't exist."""
         new_dir = os.path.join(self.tmpdir, 'subdir', 'metadata')
-        cache = MetadataCache(new_dir)
+        MetadataCache(new_dir)
         self.assertTrue(os.path.isdir(new_dir))
 
     def test_data_roundtrip_fidelity(self):

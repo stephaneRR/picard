@@ -1,12 +1,13 @@
-
 from unittest.mock import Mock, patch
+
 from test.picardtestcase import PicardTestCase
+
 from picard.album import Album
-from picard.track import Track
-from picard.file import File
 from picard.cluster import Cluster
+from picard.file import File
 from picard.metadata import Metadata
-import weakref
+from picard.track import Track
+
 
 class TestAutoSaveBug(PicardTestCase):
     def setUp(self):
@@ -67,7 +68,6 @@ class TestAutoSaveBug(PicardTestCase):
         with patch('picard.album.QtCore.QTimer.singleShot') as mock_timer:
             # Simulate MetadataBox updating objects after an edit
             # obj.update() now triggers _check_auto_save if called via MetadataBox._update_objects
-            from picard.ui.metadatabox import MetadataBox
             # Since we can't easily instantiate MetadataBox in tests, we simulate its new logic
             for obj in [self.album]:
                 obj.update()
@@ -75,6 +75,8 @@ class TestAutoSaveBug(PicardTestCase):
                     obj._check_auto_save()
             self.assertTrue(mock_timer.called, "Auto-save should have been scheduled after manual tag edit")
 
+
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__])

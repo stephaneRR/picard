@@ -18,7 +18,6 @@
 # along with this program; if not, see <https://www.gnu.org/licenses/>.
 
 from unittest.mock import (
-    MagicMock,
     Mock,
     patch,
 )
