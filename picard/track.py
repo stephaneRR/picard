@@ -195,6 +195,9 @@ class Track(FileListItem):
     def update_file_metadata(self, file):
         if file not in self.files:
             return
+        if hasattr(file, 'similarity') and file.similarity == 1.0:
+            log.debug("SAVE-TRACE: update_file_metadata called on SAVED file %r (state=%s)",
+                      file.base_filename, file.state)
         # Run the scripts for the file to allow usage of
         # file specific metadata and variables
         config = get_config()

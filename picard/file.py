@@ -469,6 +469,11 @@ class File(MetadataItem):
             to_metadata[tag] = from_metadata[tag]
 
     def copy_metadata(self, metadata, preserve_deleted=True):
+        if self.state == File.State.NORMAL and self.similarity == 1.0:
+            import traceback
+            caller = traceback.extract_stack(limit=3)[0]
+            log.debug("SAVE-TRACE %r: copy_metadata called on SAVED file from %s:%d %s",
+                      self.base_filename, caller.filename.split('/')[-1], caller.lineno, caller.name)
         saved_metadata = {}
 
         # Keep current value for special tags that got calculated from audio content
@@ -603,6 +608,9 @@ class File(MetadataItem):
             temp_info = {}
             self._copy_file_info_tags(temp_info, self.orig_metadata)
             images_changed = self.orig_metadata.images != self.metadata.images
+            log.debug("SAVE-TRACE %r: images_changed=%s (orig=%d, meta=%d)",
+                      self.base_filename, images_changed,
+                      len(self.orig_metadata.images), len(self.metadata.images))
             # Copy new metadata to original metadata, applying format specific
             # conversions (e.g. for ID3v2.3)
             config = get_config()
@@ -620,13 +628,18 @@ class File(MetadataItem):
             self.clear_errors()
             self.clear_pending(signal=False)
             self._update_filesystem_metadata(self.orig_metadata)
+            log.debug("SAVE-TRACE %r: state after clear_pending=%s, about to emit images signal=%s",
+                      self.base_filename, self.state, images_changed)
             if images_changed:
                 self.metadata_images_changed.emit()
+            log.debug("SAVE-TRACE %r: state after signal cascade=%s",
+                      self.base_filename, self.state)
             self._loaded_identity = FileIdentity(self.filename)
             # run post save hook
             run_file_post_save_processors(self)
 
         # Force update to ensure file status icon changes immediately after save
+        log.debug("SAVE-TRACE %r: state before update()=%s", self.base_filename, self.state)
         self.update()
 
         if self.state != File.State.REMOVED:
