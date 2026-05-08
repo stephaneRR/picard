@@ -383,21 +383,26 @@
 - `_check_all_saved` détecte la fin et lance le suivant
 - 4 tests de sérialisation
 
-### Investigation bug visuel save (en cours)
-- Le bug persiste même sur un seul album — la sérialisation n'est pas la seule cause
-- Ajout de logging diagnostic SAVE-TRACE dans :
-  - `file._saving_finished` : images_changed, state après signal cascade
-  - `file.update()` : tag ou image exact qui cause le revert NORMAL→CHANGED
-  - `file.copy_metadata` : alerte si appelé sur un fichier déjà sauvé
-  - `track.update_file_metadata` : alerte si appelé sur un fichier sauvé
-  - `FileItem.update()` (UI) : changement d'icône NORMAL→autre
-- Le log est écrit dans `save_debug.log` à côté du fichier Picard.ini
-- En attente du log de Stephane pour identifier la cause racine
+### Bug visuel save — résolu par la sérialisation ✅
+- Le bug de fichiers repassant en "rectangle blanc" après save était causé par les saves concurrents
+- Confirmé par Stephane : la sérialisation a résolu le problème
+- Logging diagnostic SAVE-TRACE conservé dans `save_debug.log` (à côté de Picard.ini) pour référence
+
+### Fix fichiers read-only bloquant la queue ✅
+- `_notify_album_save_complete` n'était pas appelé en cas d'erreur → queue bloquée
+- Fix : notification appelée même en cas d'erreur + guard double-appel dans `_auto_save_finish`
+- Message d'erreur détaillé dans la barre de statut
+
+### Fix auto-save non annulé lors du changement d'édition ✅
+- Changer d'édition ne coupait pas le timer auto-save → save/suppression avec mauvaise édition
+- Fix : `switch_release_version()` et `load()` remettent `_auto_save_scheduled = False`
+- `_auto_save_enqueue` vérifie le flag + `is_perfect()` avant d'enqueue
+- Si la nouvelle édition redevient parfaite → nouveau timer via `_finalize_loading_album`
 
 ### Bilan
-- 19 fichiers modifiés/créés
-- 4760 tests passent, 0 échec
-- 96 tests nouveaux cette session
+- 22 fichiers modifiés/créés
+- 4762 tests passent, 0 échec
+- 98 tests nouveaux cette session
 
 ### Analyse UI réactivité au chargement (non implémenté, noté)
 - _scan_paths_recursive + format_registry.open bloquent le thread UI

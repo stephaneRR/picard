@@ -57,7 +57,9 @@
 - [x] Délai configurable 1-30s (défaut 5s) ✅ Session 3 — spinbox dans Options > Advanced > Automation
 - [x] Bouton "Reload Cover Art" ✅ Session 3 — menu clic-droit album, relance providers sans re-fetch tags
 - [x] Sérialisation auto-saves ✅ Session 3 — queue FIFO, un album à la fois, élimine concurrence
-- [ ] Bug visuel save : fichiers repassent en "non sauvé" pendant le save — diagnostic SAVE-TRACE en place, en attente de logs
+- [x] Bug visuel save résolu ✅ Session 3 — causé par saves concurrents, fixé par sérialisation
+- [x] Fix fichiers read-only bloquant la queue ✅ Session 3 — notification même en cas d'erreur
+- [x] Fix auto-save non annulé lors du changement d'édition ✅ Session 3 — reset flag dans switch_release_version + load
 
 ### P1 — Meilleure version automatique
 - [x] Auto-vérification versions + notification statusbar ✅ TASK-07 — 11 tests
