@@ -364,6 +364,13 @@ class Album(MetadataItem):
 
     def _auto_save_enqueue(self):
         """Add this album to the serialized auto-save queue."""
+        if not self._auto_save_scheduled:
+            log.debug("Auto-save enqueue skipped for %r: cancelled (edition change or reload)", self)
+            return
+        if not self.is_perfect():
+            self._auto_save_scheduled = False
+            log.debug("Auto-save enqueue skipped for %r: no longer perfect", self)
+            return
         if not hasattr(self.tagger, '_auto_save_queue'):
             self.tagger._auto_save_queue = []
             self.tagger._auto_save_running = False
@@ -1039,6 +1046,7 @@ class Album(MetadataItem):
         if self.has_critical_tasks():
             log.info("Not reloading, some requests are still active.")
             return
+        self._auto_save_scheduled = False
         self.tagger.window.set_statusbar_message(
             N_("Loading album %(id)s …"),
             {'id': self.id},
@@ -1313,6 +1321,10 @@ class Album(MetadataItem):
     def switch_release_version(self, mbid):
         if mbid == self.id:
             return
+        self._auto_save_scheduled = False
+        if hasattr(self.tagger, '_auto_save_queue') and self in self.tagger._auto_save_queue:
+            self.tagger._auto_save_queue.remove(self)
+            log.debug("Auto-save cancelled for %r: switching to version %s", self, mbid)
         for file in list(self.iterfiles(True)):
             file.move(self.unmatched_files)
         album = self.tagger.albums.get(mbid)

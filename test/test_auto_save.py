@@ -659,6 +659,7 @@ class AutoSaveSerializationTest(PicardTestCase):
         album.unmatched_files = Mock()
         album.unmatched_files.files = []
         album.metadata.images.append(Mock())
+        album._auto_save_scheduled = True
         return album, file
 
     def test_second_album_waits_for_first(self):
@@ -717,3 +718,31 @@ class AutoSaveSerializationTest(PicardTestCase):
             album_a._auto_save_finish()
 
             self.assertNotIn(album_a, self.tagger._auto_save_queue)
+            self.assertIn(album_b, self.tagger._auto_save_queue)
+
+    def test_edition_change_cancels_auto_save(self):
+        """Edition change resets _auto_save_scheduled and removes from queue."""
+        album, file = self._make_perfect_album('album-switch')
+
+        with patch('picard.album.QtCore.QTimer'):
+            album._auto_save_enqueue()
+            self.assertIn(album, self.tagger._auto_save_queue)
+
+            # Simulate what switch_release_version does
+            album._auto_save_scheduled = False
+            self.tagger._auto_save_queue.remove(album)
+
+            # Now the timer fires but enqueue is skipped
+            album._auto_save_enqueue()
+            self.assertNotIn(album, self.tagger._auto_save_queue)
+
+    def test_enqueue_skipped_if_cancelled(self):
+        """_auto_save_enqueue should skip if _auto_save_scheduled was reset."""
+        album, _ = self._make_perfect_album('album-skip')
+        album._auto_save_scheduled = False  # Simulate cancellation
+
+        with patch('picard.album.QtCore.QTimer'):
+            album._auto_save_enqueue()
+
+        self.assertFalse(hasattr(self.tagger, '_auto_save_queue') and
+                         album in self.tagger._auto_save_queue)
